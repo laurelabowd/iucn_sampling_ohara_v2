@@ -24,10 +24,10 @@ config <- list(
   region = list(
     country_code = NULL,
     admin_level  = NULL,
-    admin_name   = "Global Oceans",  ### Label only
-    label        = "global_oceans",  ### slug for output filenames
+    admin_name   = 'Global Oceans',  ### Label only
+    label        = 'global_oceans',  ### slug for output filenames
     ### Region boundary: manually-defined bounding box (or path to polygon)
-    boundary_source = "bbox",
+    boundary_source = 'bbox',
     ### Bounding box: c(xmin, xmax, ymin, ymax) in EPSG:4326
     bbox = c(-180, 180, -90, 90)
     ### Alternative: point to a shapefile/geopackage
@@ -38,14 +38,14 @@ config <- list(
   ### so you can point this at your own dataset without editing code. The defaults
   ### match the California Protected Areas / GAP-status schema used in the study.
   conservation_areas = list(
-    path          = here("data", "raw", "wdpa", "WDPA_Nov2026_Public.gdb"),
-    gap_field     = "IUCN_CAT",            ### protection-status field
+    path          = here('data/raw/wdpa', 'WDPA_Nov2026_Public.gdb'),
+    gap_field     = 'IUCN_CAT',            ### protection-status field
     gap_values    = c('Ia', 'Ib', 'II', 'III', 'IV'), ### statuses to keep (strict protection)
-    realm_field   = "MARINE",          ### terrestrial/marine field (NULL to skip)
+    realm_field   = 'MARINE',          ### terrestrial/marine field (NULL to skip)
     realm_value   = c(1, 2),
-    unit_field    = "NAME",        ### protected-area name
-    agency_field  = "MANG_AUTH",        ### managing agency
-    agency_level_field = "DESIG_TYPE"
+    unit_field    = 'NAME',        ### protected-area name
+    agency_field  = 'MANG_AUTH',        ### managing agency
+    agency_level_field = 'DESIG_TYPE'
   ),
 
   ### --- Years -----------------------------------------------------------------
@@ -60,9 +60,9 @@ config <- list(
   ### Named so scripts never sprinkle bare EPSG codes. `working` is lon/lat for
   ### H3 indexing; `equal_area` for area/summary stats; `display` for basemaps.
   crs = list(
-    working    = "EPSG:4326",   ### H3 / geographic
-    equal_area = "EPSG:6933",     ### Cylindrical Equal Area (global, good for oceans)
-    display    = "EPSG:3857"    ### web mercator, plotting only
+    working    = 'EPSG:4326',   ### H3 / geographic
+    equal_area = 'EPSG:6933',     ### Cylindrical Equal Area (global, good for oceans)
+    display    = 'EPSG:3857'    ### web mercator, plotting only
   ),
 
   ### --- Spatial resolution ----------------------------------------------------
@@ -74,10 +74,10 @@ config <- list(
   ### To set them here instead, keep that edit out of version control (e.g. in a
   ### git-ignored config/config_local.R that overrides config$credentials).
   credentials = list(
-    iucn_redlist_key = Sys.getenv("IUCN_REDLIST_KEY"),
-    gbif_user        = Sys.getenv("GBIF_USER"),
-    gbif_pwd         = Sys.getenv("GBIF_PWD"),
-    gbif_email       = Sys.getenv("GBIF_EMAIL")
+    iucn_redlist_key = Sys.getenv('IUCN_REDLIST_KEY'),
+    gbif_user        = Sys.getenv('GBIF_USER'),
+    gbif_pwd         = Sys.getenv('GBIF_PWD'),
+    gbif_email       = Sys.getenv('GBIF_EMAIL')
   ),
 
   ### --- Occurrence sources: GBIF and/or OBIS ----------------------------------
@@ -92,17 +92,17 @@ config <- list(
     enabled         = TRUE,
     has_geo_issue   = FALSE,
     has_coordinate  = TRUE,
-    basis_of_record = c("HUMAN_OBSERVATION", "OBSERVATION",
-                        "MACHINE_OBSERVATION", "PRESERVED_SPECIMEN"),
-    download_format = "SIMPLE_PARQUET"
+    basis_of_record = c('HUMAN_OBSERVATION', 'OBSERVATION',
+                        'MACHINE_OBSERVATION', 'PRESERVED_SPECIMEN'),
+    download_format = 'SIMPLE_PARQUET'
   ),
 
   ### OBIS download filters (OBIS has no server-side basis-of-record filter, so it
   ### is applied after download; same GBIF-style values).
   obis_filters = list(
     enabled         = TRUE,
-    basis_of_record = c("HUMAN_OBSERVATION", "OBSERVATION",
-                        "MACHINE_OBSERVATION", "PRESERVED_SPECIMEN")
+    basis_of_record = c('HUMAN_OBSERVATION', 'OBSERVATION',
+                        'MACHINE_OBSERVATION', 'PRESERVED_SPECIMEN')
   ),
 
   ### Re-download a taxon's GBIF data if the stored download is older than this
@@ -112,14 +112,14 @@ config <- list(
 
   ### --- Paths (roots only; per-taxon/year paths are derived from these) -------
   paths = list(
-    data_raw       = here("data", "raw"),
-    data_processed = here("data", "processed"),
-    output         = here("output"),
+    data_raw       = here('data/raw'),
+    data_processed = here('data/processed'),
+    output         = here('output'),
     ### The single authoritative species crosswalk written by Stage 0.
-    crosswalk      = here("data", "processed", "species_crosswalk.csv"),
+    crosswalk      = here('data/processed', 'species_crosswalk.csv'),
     ### Shared spatial layers produced by 03_process/build_hex_grid.R
-    hex_grid       = here("data", "processed", "spatial_layers", "hex_grid.gpkg"),
-    cons_areas_hex = here("data", "processed", "spatial_layers", "cons_areas_hex.gpkg")
+    hex_grid       = here('data/processed/spatial_layers', 'hex_grid.gpkg'),
+    cons_areas_hex = here('data/processed/spatial_layers', 'cons_areas_hex.gpkg')
   ),
 
   ### --- Occurrence-cleaning thresholds ----------------------------------------
@@ -128,24 +128,24 @@ config <- list(
     max_coord_uncertainty_m = 750,   ### drop records less precise than this
     min_coord_precision     = 0.01,  ### drop coarser-than-this precision
     max_individual_count    = 99,    ### drop implausibly large counts
-    exclude_basis_of_record = c("FOSSIL_SPECIMEN", "LIVING_SPECIMEN")
+    exclude_basis_of_record = c('FOSSIL_SPECIMEN', 'LIVING_SPECIMEN')
   ),
 
   ### --- Default species-list source -------------------------------------------
   ### By default the template runs on the committed sample list. Point this at
   ### your own CSV (a `scientific_name` column is enough) to use real data. A
   ### Google Sheet can be used per-taxon instead via config/taxa_config.R.
-  species_list_default = here("data/raw/iucn/iucn_species_list.csv"),
+  species_list_default = here('data/raw/iucn/iucn_species_list.csv'),
 
   ### --- Which taxa to run -------------------------------------------------
   ### Must match the names defined in config/taxa_config.R.
-  taxa = c("mammals_marine")
+  taxa = c('mammals_marine', 'abalones')
 )
 
-### Is an occurrence source switched on? `source` is "gbif" or "obis". A missing
+### Is an occurrence source switched on? `source` is 'gbif' or 'obis'. A missing
 ### flag counts as enabled so older configs keep working.
 source_enabled <- function(source, cfg = config) {
-  isTRUE(cfg[[paste0(source, "_filters")]]$enabled %||% TRUE)
+  isTRUE(cfg[[paste0(source, '_filters')]]$enabled %||% TRUE)
 }
 
 ### --- Output-path helpers (ONE canonical scheme) ------------------------------
@@ -156,14 +156,14 @@ source_enabled <- function(source, cfg = config) {
 ### from these helpers so producer and consumer can never disagree.
 
 taxon_output_dir <- function(taxon, cfg = config) {
-  file.path(cfg$paths$output, "indicators", "species_populations", taxon)
+  file.path(cfg$paths$output, 'indicators', 'species_populations', taxon)
 }
 
 taxon_processed_dir <- function(taxon, cfg = config) {
-  file.path(cfg$paths$data_processed, "species_populations", taxon)
+  file.path(cfg$paths$data_processed, 'species_populations', taxon)
 }
 
 ### Per-species-year parquet directory (parsed/cleaned occurrences, GBIF and/or OBIS).
 taxon_year_occ_dir <- function(taxon, year, cfg = config) {
-  file.path(taxon_processed_dir(taxon, cfg), "occurrences", as.character(year))
+  file.path(taxon_processed_dir(taxon, cfg), 'occurrences', as.character(year))
 }

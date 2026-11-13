@@ -151,6 +151,14 @@ build_species_crosswalk <- function(taxa = config$taxa,
                                     taxa_cfg = taxa_config,
                                     cfg = config,
                                     write = TRUE) {
+  ### test to warn if config and taxa_config don't match for all taxa!
+  all_missed <- c(setdiff(taxa, names(taxa_config)), setdiff(names(taxa_config), taxa))
+  if(length(all_missed) != 0) {
+    warning('Unmatched taxa!',
+            '\n  Taxa in config:      ', paste0(taxa, collapse = ', '),
+            '\n  Taxa in taxa_config: ', paste0(names(taxa_cfg), collapse = ', '))
+  }
+  
   crosswalk <- purrr::map_dfr(taxa, function(taxon) {
     tcfg <- taxa_cfg[[taxon]]
     if (is.null(tcfg)) stop(glue("Taxon '{taxon}' not found in taxa_config."))

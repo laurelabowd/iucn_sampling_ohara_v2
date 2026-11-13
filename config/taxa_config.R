@@ -66,7 +66,7 @@ taxa_config <- list(
   # ),
 
   ### Marine mammals: species list from IUCN spatial data extraction
-  ### (R/_pre_analysis/extract_names_iucn.R), ranges from IUCN Red List shapefiles
+  ### see R/_pre_analysis scripts, ranges from IUCN Red List shapefiles
   mammals_marine = list(
     taxon                = "mammals_marine",
     species_source       = .species_source(
@@ -74,11 +74,28 @@ taxa_config <- list(
       csv_path = file.path(config$paths$data_raw, "iucn_species_list.csv")
     ),
     range_source         = "shapefile",
-    shapefile_dir        = file.path(config$paths$data_raw, "iucn_2026", "mammals_marine"),
+    shapefile_dir        = file.path(config$paths$data_raw, "iucn", "mammals_marine"),
     shapefile_name_field = "sci_name",    ### IUCN field holding species name
     obis_dataset_path    = file.path(config$paths$data_raw, "obis", "mammals_marine",
                                      "occurrence.parquet"),
     gbif_dataset_path    = file.path(config$paths$data_raw, "gbif", "mammals_marine",
+                                     "occurrence.parquet"),
+    gbif_columns_keep    = gbif_columns_keep
+  ),
+
+  ### Abalones: species list from IUCN spatial data extraction
+  abalones = list(
+    taxon                = "abalones",
+    species_source       = .species_source(
+      "abalones",
+      csv_path = file.path(config$paths$data_raw, "iucn_species_list.csv")
+    ),
+    range_source         = "shapefile",
+    shapefile_dir        = file.path(config$paths$data_raw, "iucn", "abalones"),
+    shapefile_name_field = "sci_name",    ### IUCN field holding species name
+    obis_dataset_path    = file.path(config$paths$data_raw, "obis", "abalones",
+                                     "occurrence.parquet"),
+    gbif_dataset_path    = file.path(config$paths$data_raw, "gbif", "abalones",
                                      "occurrence.parquet"),
     gbif_columns_keep    = gbif_columns_keep
   )
