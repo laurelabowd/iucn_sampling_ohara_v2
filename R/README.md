@@ -50,7 +50,7 @@ indicators consume.
 | File | Role |
 |------|------|
 | [`build_hex_grid.R`](03_process/build_hex_grid.R) | Builds the two shared spatial layers: every H3 cell covering the study region, and the subset inside conservation areas (with agency / GAP attributes). Region and resolution come from config. |
-| [`parse_occurrence.R`](03_process/parse_occurrence.R) | Subsets each taxon's raw GBIF and/or OBIS data into one parquet per species-year (OBIS wins on duplicates), filtering on the crosswalk's `name_gbif`. |
+| [`parse_occurrence.R`](03_process/parse_occurrence.R) | Subsets each taxon's raw GBIF and/or OBIS data into one parquet per species-year (GBIF wins on duplicates), filtering on the crosswalk's `name_gbif`. |
 | [`clean_occurrence.R`](03_process/clean_occurrence.R) | Runs CoordinateCleaner + config-driven quality filters and H3 thinning (one record per hex cell) on each per-species-year parquet. |
 | [`range_from_shapefiles_fn.R`](03_process/range_from_shapefiles_fn.R) | **Canonical range step.** Converts per-species range shapefiles into a wide table of H3 range cells (one 0/1 column per species), plus per-species totals overall and within conservation areas. |
 | [`range_from_raster_fn.R`](03_process/range_from_raster_fn.R) | Bird alternative. Converts the eBird presence raster into the same per-species hex range-cell table the shapefile path produces, so downstream treats all taxa identically. |

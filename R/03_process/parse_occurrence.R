@@ -16,9 +16,17 @@
 ### binomial) — the single canonical name column — so the filter always matches
 ### GBIF's own `species` field regardless of taxon.
 ###
+### Caching: after a taxon is parsed, a manifest (parse_occurrence_manifest_<taxon>.json,
+### next to the run log) records fingerprints of the GBIF and OBIS download manifests,
+### the run settings (years, species, columns, enabled sources) and the parsing code.
+### If all of them match and the written files still exist, the taxon is skipped and
+### the previous run log is returned. `force = TRUE` ignores the cache, reparses, and
+### removes per-species-year files (and their _clean outputs) that are no longer produced.
+###
 ### Requires config + taxa_config + R/00_utils.R + a built crosswalk.
 ###
 ### Usage:  res <- run_occurrence_parse()
+###         res <- run_occurrence_parse(force = TRUE)
 
 suppressPackageStartupMessages({
   library(dplyr)
@@ -140,8 +148,82 @@ write_occurrence_subset <- function(gbif, obis, target_species, target_year,
                  status      = "written")
 }
 
-### Parse one taxon across all configured years.
-parse_one_taxon <- function(taxon, cfg = config, taxa_cfg = taxa_config) {
+### --- Parse cache -------------------------------------------------------------
+parse_manifest_path <- function(taxon, cfg = config) {
+  file.path(taxon_output_dir(taxon, cfg), "logs", glue("parse_occurrence_manifest_{taxon}.json"))
+}
+
+parse_log_path <- function(taxon, cfg = config) {
+  file.path(taxon_output_dir(taxon, cfg), "logs", glue("parse_occurrence_{taxon}.csv"))
+}
+
+### Hash of a download manifest JSON ("none" if absent, so a missing manifest never
+### matches a recorded one by accident).
+.download_manifest_hash <- function(dir, file) {
+  p <- file.path(dir, file)
+  if (!file.exists(p)) return("none")
+  m <- tryCatch(jsonlite::read_json(p, simplifyVector = TRUE), error = function(e) NULL)
+  if (is.null(m)) "none" else rlang::hash(m)
+}
+
+### Hash of the parsing code. Deparsed (not hashed as closures) so comments,
+### whitespace and line numbers don't invalidate the cache.
+parse_code_hash <- function() {
+  fns <- c("resolve_columns_to_keep", ".col_ci", "occ_dedup_key", ".align_obis",
+           "merge_obis_gbif", "write_occurrence_subset", "parse_one_taxon")
+  rlang::hash(lapply(fns, function(f) deparse(get(f, envir = globalenv()))))
+}
+
+### Fingerprint of everything that determines a taxon's parsed output.
+parse_fingerprint <- function(tcfg, use_gbif, use_obis, species_vec, cfg = config) {
+  list(
+    gbif_manifest = if (use_gbif) .download_manifest_hash(dirname(tcfg$gbif_dataset_path),
+                                                          "gbif_download_manifest.json") else "off",
+    obis_manifest = if (use_obis) .download_manifest_hash(dirname(tcfg$obis_dataset_path),
+                                                          "obis_download_manifest.json") else "off",
+    run = rlang::hash(list(years    = sort(as.integer(cfg$years)),
+                           species  = sort(species_vec),
+                           columns  = tcfg$gbif_columns_keep)),
+    code = parse_code_hash()
+  )
+}
+
+### Returns NULL if the previous parse is reusable, else a short reason string.
+parse_stale_reason <- function(taxon, fingerprint, cfg = config) {
+  mp <- parse_manifest_path(taxon, cfg)
+  if (!file.exists(mp)) return("no manifest")
+  old <- tryCatch(jsonlite::read_json(mp, simplifyVector = TRUE), error = function(e) NULL)
+  if (is.null(old)) return("unreadable manifest")
+  for (nm in names(fingerprint)) {
+    if (!identical(old$fingerprint[[nm]], fingerprint[[nm]])) return(glue("{nm} changed"))
+  }
+  lp <- parse_log_path(taxon, cfg)
+  if (!file.exists(lp)) return("run log missing")
+  log <- readr::read_csv(lp, show_col_types = FALSE)
+  written <- log$file_path[log$status == "written"]
+  if (!all(file.exists(here::here(written)))) return("output file missing")
+  NULL
+}
+
+### Remove per-species-year files under `base_dir` that the current parse did not
+### write (species dropped from the crosswalk, years no longer configured, or
+### species-years that now have no data), plus their derived `_clean.parquet`.
+### Returns the removed paths (invisibly).
+remove_orphaned_occurrences <- function(base_dir, results) {
+  kept <- normalizePath(here::here(results$file_path[results$status == "written"]),
+                        mustWork = FALSE)
+  on_disk <- list.files(base_dir, pattern = "_occs\\.parquet$", recursive = TRUE,
+                        full.names = TRUE)
+  orphans <- on_disk[!normalizePath(on_disk, mustWork = FALSE) %in% kept]
+  derived <- sub("_occs\\.parquet$", "_clean.parquet", orphans)
+  gone <- c(orphans, derived[file.exists(derived)])
+  if (length(gone) > 0) file.remove(gone)
+  invisible(gone)
+}
+
+### Parse one taxon across all configured years. Skips when the cache is current
+### (see parse_stale_reason) unless `force = TRUE`.
+parse_one_taxon <- function(taxon, cfg = config, taxa_cfg = taxa_config, force = FALSE) {
   tcfg <- taxa_cfg[[taxon]]
   dataset_path <- tcfg$gbif_dataset_path
 
@@ -181,6 +263,17 @@ parse_one_taxon <- function(taxon, cfg = config, taxa_cfg = taxa_config) {
     stringr::str_squish() |>
     unique()
 
+  fingerprint <- parse_fingerprint(tcfg, use_gbif, use_obis, species_vec, cfg)
+  if (!force) {
+    reason <- parse_stale_reason(taxon, fingerprint, cfg)
+    if (is.null(reason)) {
+      message(glue("[{taxon}] parse cache is current; skipping (force = TRUE to reparse)"))
+      return(readr::read_csv(parse_log_path(taxon, cfg), show_col_types = FALSE) |>
+               dplyr::select(-dplyr::any_of("taxon")))
+    }
+    message(glue("[{taxon}] reparsing: {reason}"))
+  }
+
   cols <- if (use_gbif) resolve_columns_to_keep(dataset, tcfg$gbif_columns_keep) else tcfg$gbif_columns_keep
   base_dir <- file.path(taxon_processed_dir(taxon, cfg), "occurrences")
 
@@ -217,16 +310,26 @@ parse_one_taxon <- function(taxon, cfg = config, taxa_cfg = taxa_config) {
     }
   )
 
-  ### Per-taxon run log.
-  log_path <- file.path(taxon_output_dir(taxon, cfg), "logs",
-                        glue("parse_occurrence_{taxon}.csv"))
+  if (force) {
+    gone <- remove_orphaned_occurrences(base_dir, results)
+    if (length(gone) > 0) message(glue("[{taxon}] removed {length(gone)} orphaned file(s)"))
+  }
+
+  ### Per-taxon run log, then the manifest last so an interrupted run is never cached.
+  log_path <- parse_log_path(taxon, cfg)
   ensure_parent_dir(log_path)
   readr::write_csv(dplyr::mutate(results, taxon = taxon), log_path)
+  jsonlite::write_json(
+    list(taxon = taxon, fingerprint = fingerprint,
+         parsed_utc = format(Sys.time(), tz = "UTC", usetz = FALSE)),
+    parse_manifest_path(taxon, cfg), auto_unbox = TRUE, pretty = TRUE
+  )
   results
 }
 
-run_occurrence_parse <- function(taxa = config$taxa, cfg = config, taxa_cfg = taxa_config) {
+run_occurrence_parse <- function(taxa = config$taxa, cfg = config, taxa_cfg = taxa_config,
+                                 force = FALSE) {
   purrr::map_dfr(taxa, function(taxon) {
-    parse_one_taxon(taxon, cfg, taxa_cfg) |> dplyr::mutate(taxon = taxon, .before = 1)
+    parse_one_taxon(taxon, cfg, taxa_cfg, force = force) |> dplyr::mutate(taxon = taxon, .before = 1)
   })
 }
