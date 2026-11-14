@@ -24,19 +24,19 @@ source(here("config", "taxa_config.R"))
 source(here("config", "sampling_config.R"))
 source(here("R", "00_utils.R"))
 
-source(here("R", "01_taxonomy", "build_species_crosswalk.R"))
-source(here("R", "02_acquire", "download_gbif.R"))
-source(here("R", "02_acquire", "download_obis.R"))
-source(here("R", "02_acquire", "get_ebird_status.R"))
-source(here("R", "02_acquire", "get_redlist_status.R"))
-source(here("R", "03_process", "parse_occurrence.R"))
-source(here("R", "03_process", "clean_occurrence.R"))
-source(here("R", "03_process", "build_hex_grid.R"))
-source(here("R", "03_process", "range_from_shapefiles_run.R"))
-source(here("R", "04_indicators", "calc_richness_in_grid.R"))
-source(here("R", "04_indicators", "find_sampled_cells_run.R"))
-source(here("R", "04_indicators", "find_optimal_sampling_locs_run.R"))
-source(here("R", "04_indicators", "greedy_setcover_run.R"))
+source(here("R", "01_taxonomy", "01_build_species_crosswalk.R"))
+source(here("R", "02_acquire", "01_download_gbif.R"))
+source(here("R", "02_acquire", "02_download_obis.R"))
+source(here("R", "02_acquire", "03_get_ebird_status.R"))
+source(here("R", "02_acquire", "04_get_redlist_status.R"))
+source(here("R", "03_process", "01_parse_occurrence.R"))
+source(here("R", "03_process", "02_clean_occurrence.R"))
+source(here("R", "03_process", "03_build_hex_grid.R"))
+source(here("R", "03_process", "04_range_from_shapefiles_run.R"))
+source(here("R", "04_indicators", "01_calc_richness_in_grid.R"))
+source(here("R", "04_indicators", "02_find_sampled_cells_run.R"))
+source(here("R", "04_indicators", "03_find_optimal_sampling_locs_run.R"))
+source(here("R", "04_indicators", "04_greedy_setcover_run.R"))
 
 ### --- Sample-mode overrides ----------------------------------------------------
 ### Repoint config + taxa_config at data/sample and narrow to the offline taxa.
@@ -78,6 +78,7 @@ run_pipeline <- function(sample = FALSE, do_acquire = !sample) {
     ### Only taxa with an obis_dataset_path in taxa_config are fetched from OBIS.
     run_obis_downloads()
     ### get_ebird_status / run_redlist_status are opt-in; call directly if needed.
+    ### NOTE: for IUCN downloads with meta, all the redlist status is in there already!
   } else {
     message("== Stage 1: acquire skipped (using provided inputs) ==")
   }
@@ -96,4 +97,4 @@ run_pipeline <- function(sample = FALSE, do_acquire = !sample) {
 
   message("== Pipeline complete. Outputs in output/ ==")
   invisible(TRUE)
-}
+  }

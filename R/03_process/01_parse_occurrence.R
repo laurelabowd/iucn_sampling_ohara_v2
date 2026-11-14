@@ -1,5 +1,5 @@
 ### =============================================================================
-### R/03_process/parse_occurrence.R  —  subset raw GBIF and/or OBIS into per-species-year parquet
+### R/03_process/01_parse_occurrence.R  —  subset raw GBIF and/or OBIS into per-species-year parquet
 ### =============================================================================
 ###
 ### Reads each taxon's raw GBIF occurrence dataset and writes one parquet file per
@@ -7,7 +7,7 @@
 ###
 ### Sources are chosen in config (gbif_filters$enabled / obis_filters$enabled):
 ### GBIF only, OBIS only, or both. If a taxon has `obis_dataset_path`
-### (taxa_config) and OBIS is enabled, the OBIS parquet from download_obis.R is
+### (taxa_config) and OBIS is enabled, the OBIS parquet from 02_download_obis.R is
 ### merged in. An occurrence found in both OBIS and GBIF (same
 ### coordinates to ~11 m and same date) is kept once, as the GBIF record. Output
 ### gains `source` ("obis"/"gbif") and `record_id` columns.

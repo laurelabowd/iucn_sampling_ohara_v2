@@ -1,5 +1,5 @@
 ### =============================================================================
-### R/04_indicators/find_sampled_cells_fn.R  —  sampled-cell summaries (functions)
+### R/04_indicators/02a_find_sampled_cells_fn.R  —  sampled-cell summaries (functions)
 ### =============================================================================
 ###
 ### For each species: how many of its range cells are sampled, how many of those

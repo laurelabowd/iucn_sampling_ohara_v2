@@ -1,5 +1,5 @@
 ### =============================================================================
-### R/04_indicators/greedy_setcover_fn.R  —  greedy weighted set-cover (functions)
+### R/04_indicators/04a_greedy_setcover_fn.R  —  greedy weighted set-cover (functions)
 ### =============================================================================
 ###
 ### Pick a minimal set of hex cells that brings every undersampled species up to

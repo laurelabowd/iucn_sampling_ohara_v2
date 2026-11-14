@@ -1,8 +1,8 @@
 ### =============================================================================
-### R/03_process/clean_occurrence.R  —  clean + spatially thin occurrences (GBIF and/or OBIS)
+### R/03_process/02_clean_occurrence.R  —  clean + spatially thin occurrences (GBIF and/or OBIS)
 ### =============================================================================
 ###
-### For each per-species-year parquet from parse_occurrence.R: run CoordinateCleaner,
+### For each per-species-year parquet from 01_parse_occurrence.R: run CoordinateCleaner,
 ### apply quality filters (thresholds from config$cleaning), diagnostic checks,
 ### and H3 thinning (one record per hex cell at config$hex_resolution). Writes
 ### `<species>_clean.parquet` next to the input and a per-taxon-year run log.

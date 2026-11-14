@@ -1,5 +1,5 @@
 ### =============================================================================
-### R/03_process/build_hex_grid.R  —  region H3 grid + conservation-area cells
+### R/03_process/03_build_hex_grid.R  —  region H3 grid + conservation-area cells
 ### =============================================================================
 ###
 ### Produces the two shared spatial layers the rest of the pipeline joins on:
@@ -9,7 +9,7 @@
 ###
 ### Reworked from get_hex_grid.R: region and resolution come from config; the
 ### conservation-layer field names are configurable; the bird eBird-raster zonal
-### block (a range source, not a grid step) is moved to range_from_raster.R; and
+### block (a range source, not a grid step) is moved to 04b_range_from_raster_fn.R; and
 ### the mangled double-assignment bug at get_hex_grid.R:144-147 is dropped.
 ###
 ### Requires config + R/00_utils.R.  Usage:  build_hex_grid()

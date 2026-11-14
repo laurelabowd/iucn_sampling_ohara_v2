@@ -1,5 +1,5 @@
 ### =============================================================================
-### R/02_acquire/get_ebird_status.R  —  bird range source (eBird Status & Trends)
+### R/02_acquire/03_get_ebird_status.R  —  bird range source (eBird Status & Trends)
 ### =============================================================================
 ###
 ### Birds use range_source = "raster": their ranges come from eBird Status &
@@ -8,7 +8,7 @@
 ### study region, and writes a multi-layer binary presence raster (one layer per
 ### species) at taxa_config$bird$ebird_richness_raster.
 ###
-### range_from_raster.R then converts that raster to per-species hex range cells,
+### 04b_range_from_raster_fn.R then converts that raster to per-species hex range cells,
 ### producing the same range_grid_cells.parquet shape as the shapefile path.
 ###
 ### API-gated: needs EBIRDST_KEY and EBIRDST_DATA_DIR in .Renviron.

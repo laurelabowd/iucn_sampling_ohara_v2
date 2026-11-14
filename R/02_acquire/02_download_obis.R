@@ -1,8 +1,8 @@
 ### =============================================================================
-### R/02_acquire/download_obis.R  —  download OBIS occurrence records
+### R/02_acquire/02_download_obis.R  —  download OBIS occurrence records
 ### =============================================================================
 ###
-### Marine counterpart of download_gbif.R. Reads the master crosswalk built in
+### Marine counterpart of 01_download_gbif.R. Reads the master crosswalk built in
 ### Stage 0, takes each taxon's accepted species names, and pulls matching
 ### occurrence records from the OBIS API (https://api.obis.org/v3/occurrence),
 ### writing one parquet file per taxon to `obis_dataset_path` (taxa_config).
@@ -11,14 +11,14 @@
 ### API directly, so this can take a while for large taxa. Species are matched by
 ### scientific name (crosswalk `name_gbif`, the accepted binomial).
 ###
-### Filters mirror download_gbif.R: the same years (range of config$years), the
+### Filters mirror 01_download_gbif.R: the same years (range of config$years), the
 ### same region bounding box, and config$obis_filters$basis_of_record. Columns are
 ### renamed to GBIF-style names (year, basisOfRecord = "HUMAN_OBSERVATION", ...)
 ### so the parse/clean stages can treat both sources alike.
 ###
 ### No credentials needed. Skipped entirely when config$obis_filters$enabled is FALSE.
 ###
-### Requires config + taxa_config + R/00_utils.R + R/02_acquire/download_gbif.R
+### Requires config + taxa_config + R/00_utils.R + R/02_acquire/01_download_gbif.R
 ### (for load_crosswalk() and region_bbox()) sourced first.
 ###
 ### Usage:
@@ -54,7 +54,7 @@ get_obis_names <- function(crosswalk, include_flagged = TRUE) {
 }
 
 ### WKT polygon for the region, or NULL when no spatial restriction is needed.
-### Reuses region_bbox() from download_gbif.R.
+### Reuses region_bbox() from 01_download_gbif.R.
 obis_region_wkt <- function(cfg = config) {
   bb <- region_bbox(cfg)
   if (is.null(bb)) return(NULL)

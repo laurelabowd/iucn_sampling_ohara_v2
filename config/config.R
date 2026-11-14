@@ -90,7 +90,7 @@ config <- list(
   ### --- Occurrence sources: GBIF and/or OBIS ----------------------------------
   ### `enabled` switches each source on or off: both TRUE = merge the two (GBIF wins
   ### where the same record is in both), or set one FALSE to use the other alone.
-  ### Disabling a source skips its download AND its use in 03_process/parse_occurrence.R.
+  ### Disabling a source skips its download AND its use in 03_process/01_parse_occurrence.R.
   ### (OBIS is only used for taxa that set `obis_dataset_path` in taxa_config.R.)
 
   ### GBIF download filters. Shared occurrence-download predicates (region is added
@@ -124,14 +124,14 @@ config <- list(
     output         = here('output'),
     ### The single authoritative species crosswalk written by Stage 0.
     crosswalk      = here('data/processed', 'species_crosswalk.csv'),
-    ### Shared spatial layers produced by 03_process/build_hex_grid.R; the H3 level is
+    ### Shared spatial layers produced by 03_process/03_build_hex_grid.R; the H3 level is
     ### appended at use (see hex_layer_path() in 00_utils.R): hex_grid_res4.gpkg, etc.
     hex_grid       = here('data/processed/spatial_layers', 'hex_grid.gpkg'),
     cons_areas_hex = here('data/processed/spatial_layers', 'cons_areas_hex.gpkg')
   ),
 
   ### --- Occurrence-cleaning thresholds ----------------------------------------
-  ### Used by 03_process/clean_occurrence.R (CoordinateCleaner + quality filters).
+  ### Used by 03_process/02_clean_occurrence.R (CoordinateCleaner + quality filters).
   cleaning = list(
     max_coord_uncertainty_m = 750,   ### drop records less precise than this
     min_coord_precision     = 0.01,  ### drop coarser-than-this precision

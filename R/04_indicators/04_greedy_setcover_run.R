@@ -1,11 +1,11 @@
 ### =============================================================================
-### R/04_indicators/greedy_setcover_run.R  —  driver
+### R/04_indicators/04_greedy_setcover_run.R  —  driver
 ### =============================================================================
 ### Runs the greedy set-cover per taxon (and optionally "combined") for a year.
 ###
 ### Requires config + sampling_config + R/00_utils.R.
 
-source(here::here("R", "04_indicators", "greedy_setcover_fn.R"))
+source(here::here("R", "04_indicators", "04a_greedy_setcover_fn.R"))
 
 run_greedy_setcover <- function(taxa = config$taxa, year = config$focal_year,
                                 cfg = config, params = sampling_params,

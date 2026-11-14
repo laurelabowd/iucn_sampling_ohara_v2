@@ -1,5 +1,5 @@
 ### =============================================================================
-### R/01_taxonomy/build_species_crosswalk.R  —  STAGE 0 driver
+### R/01_taxonomy/01_build_species_crosswalk.R  —  STAGE 0 driver
 ### =============================================================================
 ###
 ### Turns each taxon's raw input species list into ONE authoritative crosswalk
@@ -22,7 +22,7 @@
 ### Usage:
 ###   source("config/config.R"); source("config/taxa_config.R")
 ###   source("R/00_utils.R")
-###   source("R/01_taxonomy/build_species_crosswalk.R")
+###   source("R/01_taxonomy/01_build_species_crosswalk.R")
 ###   crosswalk <- build_species_crosswalk()
 
 suppressPackageStartupMessages({
@@ -35,7 +35,7 @@ suppressPackageStartupMessages({
   library(here)
 })
 
-source(here::here("R", "01_taxonomy", "resolve_species_names.R"))
+source(here::here("R", "01_taxonomy", "01a_resolve_species_names.R"))
 
 ### Load one taxon's raw species list from its configured CSV or Google Sheet.
 ### When reading a shared CSV that carries a `taxon` column, filter to this taxon.

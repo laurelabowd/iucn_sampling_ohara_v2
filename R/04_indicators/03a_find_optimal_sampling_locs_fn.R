@@ -1,5 +1,5 @@
 ### =============================================================================
-### R/04_indicators/find_optimal_sampling_locs_fn.R  —  undersampled spp + cells
+### R/04_indicators/03a_find_optimal_sampling_locs_fn.R  —  undersampled spp + cells
 ### =============================================================================
 ###
 ### Identify species whose regional range is sampled below target_sampling_frac,

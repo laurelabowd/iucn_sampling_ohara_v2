@@ -1,8 +1,8 @@
 ### =============================================================================
-### R/03_process/range_from_raster_fn.R  —  raster range source (birds)
+### R/03_process/04b_range_from_raster_fn.R  —  raster range source (birds)
 ### =============================================================================
 ###
-### Convert the eBird bird presence raster (from get_ebird_status.R) into the same
+### Convert the eBird bird presence raster (from 03_get_ebird_status.R) into the same
 ### per-species hex range-cell table the shapefile path produces, so downstream
 ### indicators treat all taxa identically.
 ###

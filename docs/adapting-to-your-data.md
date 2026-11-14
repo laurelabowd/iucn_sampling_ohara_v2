@@ -64,8 +64,8 @@ columns in `gbif_columns_keep` (notably `species`, `year`,
 `decimalLatitude/Longitude`, `basisOfRecord`, `individualCount`).
 
 ### eBird (birds, `range_source = "raster"`)
-`get_ebird_status.R` downloads eBird Status & Trends products (needs
-`EBIRDST_KEY`) and writes a presence raster; `range_from_raster.R` converts it
+`03_get_ebird_status.R` downloads eBird Status & Trends products (needs
+`EBIRDST_KEY`) and writes a presence raster; `04b_range_from_raster_fn.R` converts it
 to range cells. Or point `taxa_config$bird$ebird_richness_raster` at your own
 multi-layer presence raster.
 

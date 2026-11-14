@@ -29,11 +29,11 @@ committed sample dataset lets you run the whole thing offline first.
 config/     config.R (region, years, CRS, paths), taxa_config.R, sampling_config.R
 R/
   00_utils.R
-  01_taxonomy/    resolve_species_names.R, build_species_crosswalk.R   <- runs FIRST
-  02_acquire/     download_gbif.R, get_ebird_status.R, get_redlist_status.R
-  03_process/     parse_occurrence.R, clean_occurrence.R, build_hex_grid.R,
-                  range_from_shapefiles_fn/_run.R, range_from_raster_fn.R
-  04_indicators/  calc_richness_in_grid.R, find_sampled_cells_*,
+  01_taxonomy/    01a_resolve_species_names.R, 01_build_species_crosswalk.R   <- runs FIRST
+  02_acquire/     01_download_gbif.R, 03_get_ebird_status.R, 04_get_redlist_status.R
+  03_process/     01_parse_occurrence.R, 02_clean_occurrence.R, 03_build_hex_grid.R,
+                  range_from_shapefiles_fn/_run.R, 04b_range_from_raster_fn.R
+  04_indicators/  01_calc_richness_in_grid.R, find_sampled_cells_*,
                   find_optimal_sampling_locs_*, greedy_setcover_*
   run_pipeline.R  <- orchestrates all stages
 data/     sample/ (committed demo inputs), raw/ + processed/ (git-ignored)

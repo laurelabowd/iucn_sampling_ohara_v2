@@ -1,5 +1,5 @@
 ### =============================================================================
-### R/04_indicators/calc_richness_in_grid.R  —  species richness per hex cell
+### R/04_indicators/01_calc_richness_in_grid.R  —  species richness per hex cell
 ### =============================================================================
 ###
 ### Summarise cleaned occurrences to per-hex-cell species richness and record

@@ -1,5 +1,5 @@
 ### =============================================================================
-### R/02_acquire/get_redlist_status.R  —  IUCN Red List status (OPTIONAL)
+### R/02_acquire/04_get_redlist_status.R  —  IUCN Red List status (OPTIONAL)
 ### =============================================================================
 ###
 ### Look up each species' IUCN Red List category. Optional: only needed if you use

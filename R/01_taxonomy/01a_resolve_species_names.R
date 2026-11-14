@@ -1,5 +1,5 @@
 ### =============================================================================
-### R/01_taxonomy/resolve_species_names.R  —  the taxonomy engine
+### R/01_taxonomy/01a_resolve_species_names.R  —  the taxonomy engine
 ### =============================================================================
 ###
 ### One function to turn a raw input species list into a clean, non-destructive
@@ -20,7 +20,7 @@
 ### together, with a stable schema (see the return docs on resolve_species_names).
 ###
 ### The shapefile linkage (range_shapefile_name) is added on TOP of this output by
-### build_species_crosswalk.R, reusing the same GBIF-key bridge.
+### 01_build_species_crosswalk.R, reusing the same GBIF-key bridge.
 
 suppressPackageStartupMessages({
   library(dplyr)

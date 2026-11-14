@@ -1,5 +1,5 @@
 ### =============================================================================
-### R/03_process/range_from_shapefiles_fn.R  —  CANONICAL range step (functions)
+### R/03_process/04a_range_from_shapefiles_fn.R  —  CANONICAL range step (functions)
 ### =============================================================================
 ###
 ### Turn per-species range shapefiles into a wide table of H3 range cells:
@@ -59,7 +59,7 @@ build_range_from_shapefiles <- function(taxon, cfg = config, taxa_cfg = taxa_con
   }
   if (is.null(samp_cfg)) samp_cfg <- make_sampling_config(cfg$focal_year, cfg = cfg)[[taxon]]
 
-  ### Full CA hex grid and conservation-area cells (from build_hex_grid.R).
+  ### Full CA hex grid and conservation-area cells (from 03_build_hex_grid.R).
   hex_grid <- sf::st_read(hex_grid_path(cfg), quiet = TRUE) |> sf::st_drop_geometry()
   cons_ids <- sf::st_read(cons_areas_hex_path(cfg), quiet = TRUE)$h3_index
 

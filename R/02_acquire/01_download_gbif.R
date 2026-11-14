@@ -1,5 +1,5 @@
 ### =============================================================================
-### R/02_acquire/download_gbif.R  —  submit GBIF occurrence downloads
+### R/02_acquire/01_download_gbif.R  —  submit GBIF occurrence downloads
 ### =============================================================================
 ###
 ### Reads the master crosswalk built in Stage 0, takes each taxon's already-
@@ -53,7 +53,7 @@ build_year_predicates <- function(year_range) {
 
 ### Bounding box (xmin, xmax, ymin, ymax) for the configured region, or NULL for
 ### no spatial restriction. Unnamed config bboxes are read as xmin, xmax, ymin,
-### ymax (same convention as get_region_boundary() in build_hex_grid.R).
+### ymax (same convention as get_region_boundary() in 03_build_hex_grid.R).
 region_bbox <- function(cfg = config) {
   src <- cfg$region$boundary_source
   if (identical(src, "global")) return(NULL)
