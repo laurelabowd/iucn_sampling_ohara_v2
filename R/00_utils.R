@@ -24,6 +24,15 @@ ensure_parent_dir <- function(file_path) {
   invisible(file_path)
 }
 
+### Path to a resolution-specific hex layer: inserts "_res<N>" before the
+### extension, e.g. hex_grid.gpkg -> hex_grid_res4.gpkg, so grids at different
+### H3 levels coexist.
+hex_layer_path <- function(path, cfg = config) {
+  sub("(\\.[^.]+)$", paste0("_res", cfg$hex_resolution, "\\1"), path)
+}
+hex_grid_path       <- function(cfg = config) hex_layer_path(cfg$paths$hex_grid, cfg)
+cons_areas_hex_path <- function(cfg = config) hex_layer_path(cfg$paths$cons_areas_hex, cfg)
+
 ### Turn a scientific name into a safe file-name token: lower-case, non-alnum ->
 ### underscore, collapsed and trimmed. "Branta canadensis" -> "branta_canadensis".
 standardize_species_name <- function(x) {

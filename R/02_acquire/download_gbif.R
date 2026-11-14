@@ -143,13 +143,45 @@ read_gbif_manifest <- function(out_dir) {
   tryCatch(jsonlite::read_json(p, simplifyVector = TRUE), error = function(e) NULL)
 }
 
+### TRUE if the extracted dataset exists (a non-empty partitioned directory, or a
+### single parquet file).
+gbif_dataset_present <- function(dataset_path) {
+  if (dir.exists(dataset_path)) return(length(list.files(dataset_path)) > 0)
+  file.exists(dataset_path)
+}
+
+### Unzip a GBIF download into out_dir (producing dataset_path), replacing any
+### previous copy, then delete the zip. The zip is kept if extraction fails.
+extract_gbif_zip <- function(zip_path, out_dir, dataset_path) {
+  zip_path <- as.character(zip_path)
+  ### Extract to a staging dir first so a failed unzip doesn't destroy the old data.
+  stage <- file.path(out_dir, ".extract_tmp")
+  unlink(stage, recursive = TRUE)
+  on.exit(unlink(stage, recursive = TRUE), add = TRUE)
+  utils::unzip(zip_path, exdir = stage)
+
+  staged <- file.path(stage, basename(dataset_path))
+  if (!gbif_dataset_present(staged)) {
+    stop(glue("{basename(dataset_path)} not found inside {basename(zip_path)}; ",
+              "zip kept for inspection."))
+  }
+  unlink(dataset_path, recursive = TRUE)
+  ### Move everything (dataset plus any citation/metadata files) into out_dir.
+  for (f in list.files(stage, full.names = TRUE, all.files = TRUE, no.. = TRUE)) {
+    file.rename(f, file.path(out_dir, basename(f)))
+  }
+  file.remove(zip_path)
+  invisible(dataset_path)
+}
+
 ### Returns NULL if the existing download is reusable, else a short reason string.
-gbif_download_stale_reason <- function(manifest, request_hash, out_dir,
+### The zip is deleted after extraction, so reusability is judged by whether the
+### extracted dataset (occurrence.parquet) is present and non-empty.
+gbif_download_stale_reason <- function(manifest, request_hash, dataset_path,
                                        max_age_days = Inf) {
   if (is.null(manifest)) return("no manifest")
   if (!identical(manifest$request_hash, request_hash)) return("request changed")
-  zip <- file.path(out_dir, manifest$file)
-  if (is.null(manifest$file) || !file.exists(zip)) return("downloaded file missing")
+  if (!gbif_dataset_present(dataset_path)) return("occurrence dataset missing")
   age <- as.numeric(difftime(Sys.time(), as.POSIXct(manifest$downloaded_utc, tz = "UTC"),
                              units = "days"))
   if (is.na(age) || age > max_age_days) {
@@ -171,7 +203,8 @@ download_one_taxon <- function(taxon, cfg = config, taxa_cfg = taxa_config,
   gbif_keys <- get_gbif_keys(crosswalk, include_flagged = include_flagged)
   if (length(gbif_keys) == 0) stop(glue("No GBIF keys resolved for '{taxon}'."))
 
-  out_dir <- dirname(tcfg$gbif_dataset_path)
+  dataset_path <- tcfg$gbif_dataset_path
+  out_dir <- dirname(dataset_path)
   req_hash <- gbif_request_hash(gbif_keys, cfg)
 
   summary_row <- function(status, key) {
@@ -187,7 +220,7 @@ download_one_taxon <- function(taxon, cfg = config, taxa_cfg = taxa_config,
 
   if (!isTRUE(force)) {
     manifest <- read_gbif_manifest(out_dir)
-    reason <- gbif_download_stale_reason(manifest, req_hash, out_dir, max_age_days)
+    reason <- gbif_download_stale_reason(manifest, req_hash, dataset_path, max_age_days)
     if (is.null(reason)) {
       message(glue("[gbif] {taxon}: using CACHED download {manifest$download_key} ",
                    "(downloaded {manifest$downloaded_utc} UTC; no new download submitted)."))
@@ -203,9 +236,10 @@ download_one_taxon <- function(taxon, cfg = config, taxa_cfg = taxa_config,
     rgbif::occ_download_wait(dl)
     ensure_dir(out_dir)
     got <- rgbif::occ_download_get(dl, path = out_dir, overwrite = TRUE)
+    extract_gbif_zip(got, out_dir, dataset_path)
     jsonlite::write_json(
       list(taxon = taxon, download_key = key, request_hash = req_hash,
-           file = basename(as.character(got)),
+           dataset = basename(dataset_path),
            n_gbif_keys = length(gbif_keys),
            downloaded_utc = format(Sys.time(), tz = "UTC", "%Y-%m-%d %H:%M:%S")),
       manifest_path(out_dir), auto_unbox = TRUE, pretty = TRUE

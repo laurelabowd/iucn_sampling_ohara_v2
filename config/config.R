@@ -39,10 +39,17 @@ config <- list(
   ### match the California Protected Areas / GAP-status schema used in the study.
   conservation_areas = list(
     path          = here('data/raw/wdpa', 'WDPA_Nov2026_Public.gdb'),
-    gap_field     = 'IUCN_CAT',            ### protection-status field
-    gap_values    = c('Ia', 'Ib', 'II', 'III', 'IV'), ### statuses to keep (strict protection)
-    realm_field   = 'MARINE',          ### terrestrial/marine field (NULL to skip)
-    realm_value   = c(1, 2),
+    ### layer within `path` (the WDPA gdb also has point and source layers);
+    ### NULL for single-layer files such as a shapefile
+    layer         = 'WDPA_poly_Nov2026',
+    ### protection-status field:
+    gap_field     = 'IUCN_CAT',            
+    ### statuses to keep (strict protection):
+    gap_values    = c('Ia', 'Ib', 'II', 'III', 'IV'), 
+    ### terrestrial/marine field (NULL to skip); current WDPA uses REALM, "Coastal"
+    ### vs. "Marine" vs. "Terrestrial" not MARINE (0, 1, 2) from documentation
+    realm_field   = 'REALM',           
+    realm_value   = c('Coastal', 'Marine'),
     unit_field    = 'NAME',        ### protected-area name
     agency_field  = 'MANG_AUTH',        ### managing agency
     agency_level_field = 'DESIG_TYPE'
@@ -81,7 +88,7 @@ config <- list(
   ),
 
   ### --- Occurrence sources: GBIF and/or OBIS ----------------------------------
-  ### `enabled` switches each source on or off: both TRUE = merge the two (OBIS wins
+  ### `enabled` switches each source on or off: both TRUE = merge the two (GBIF wins
   ### where the same record is in both), or set one FALSE to use the other alone.
   ### Disabling a source skips its download AND its use in 03_process/parse_occurrence.R.
   ### (OBIS is only used for taxa that set `obis_dataset_path` in taxa_config.R.)
@@ -117,7 +124,8 @@ config <- list(
     output         = here('output'),
     ### The single authoritative species crosswalk written by Stage 0.
     crosswalk      = here('data/processed', 'species_crosswalk.csv'),
-    ### Shared spatial layers produced by 03_process/build_hex_grid.R
+    ### Shared spatial layers produced by 03_process/build_hex_grid.R; the H3 level is
+    ### appended at use (see hex_layer_path() in 00_utils.R): hex_grid_res4.gpkg, etc.
     hex_grid       = here('data/processed/spatial_layers', 'hex_grid.gpkg'),
     cons_areas_hex = here('data/processed/spatial_layers', 'cons_areas_hex.gpkg')
   ),
