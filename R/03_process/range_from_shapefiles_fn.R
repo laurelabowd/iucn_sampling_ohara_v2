@@ -60,8 +60,8 @@ build_range_from_shapefiles <- function(taxon, cfg = config, taxa_cfg = taxa_con
   if (is.null(samp_cfg)) samp_cfg <- make_sampling_config(cfg$focal_year, cfg = cfg)[[taxon]]
 
   ### Full CA hex grid and conservation-area cells (from build_hex_grid.R).
-  hex_grid <- sf::st_read(cfg$paths$hex_grid, quiet = TRUE) |> sf::st_drop_geometry()
-  cons_ids <- sf::st_read(cfg$paths$cons_areas_hex, quiet = TRUE)$h3_index
+  hex_grid <- sf::st_read(hex_grid_path(cfg), quiet = TRUE) |> sf::st_drop_geometry()
+  cons_ids <- sf::st_read(cons_areas_hex_path(cfg), quiet = TRUE)$h3_index
 
   spp_map <- .shapefile_species_map(taxon, tcfg, cfg)
 

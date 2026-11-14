@@ -116,11 +116,11 @@ undersampled species each would help cover — brighter areas are higher priorit
 
 ```{r priority-map, fig.height=8}
 # Region outline + conservation cells from the shared spatial layers.
-region <- sf::st_read(config$paths$hex_grid, quiet = TRUE) |>
+region <- sf::st_read(hex_grid_path(config), quiet = TRUE) |>
   sf::st_union() |> sf::st_transform(config$crs$equal_area)
 
 cons <- tryCatch(
-  sf::st_read(config$paths$cons_areas_hex, quiet = TRUE) |>
+  sf::st_read(cons_areas_hex_path(config), quiet = TRUE) |>
     sf::st_transform(config$crs$equal_area),
   error = function(e) NULL)
 

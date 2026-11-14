@@ -39,7 +39,7 @@ build_range_from_raster <- function(taxon = "bird", cfg = config,
 
   presence <- terra::rast(tcfg$ebird_richness_raster)
 
-  grid <- sf::st_read(cfg$paths$hex_grid, quiet = TRUE) |> sf::st_transform(terra::crs(presence))
+  grid <- sf::st_read(hex_grid_path(cfg), quiet = TRUE) |> sf::st_transform(terra::crs(presence))
   grid$zone_id <- seq_len(nrow(grid))
   zone_r <- terra::rasterize(terra::vect(grid), presence, field = "zone_id")
 
@@ -68,7 +68,7 @@ build_range_from_raster <- function(taxon = "bird", cfg = config,
   arrow::write_parquet(wide, samp_cfg$range_cells_path)
 
   ### Per-species totals (region + conservation areas), same outputs as shapefiles.
-  cons_ids <- sf::st_read(cfg$paths$cons_areas_hex, quiet = TRUE)$h3_index
+  cons_ids <- sf::st_read(cons_areas_hex_path(cfg), quiet = TRUE)$h3_index
   tot <- wide |> dplyr::summarize(dplyr::across(-h3_index, ~sum(.x, na.rm = TRUE))) |>
     tidyr::pivot_longer(dplyr::everything(), names_to = "species", values_to = "tot_range_cells")
   in_cons <- wide |> dplyr::filter(h3_index %in% cons_ids) |>

@@ -62,7 +62,7 @@ run_find_sampled_cells <- function(taxon, year, cfg = config,
   samp_cfg <- make_sampling_config(year, cfg = cfg)[[taxon]]
 
   cell_list <- arrow::read_parquet(samp_cfg$range_cells_path)
-  cons_ids  <- sf::st_read(cfg$paths$cons_areas_hex, quiet = TRUE)$h3_index
+  cons_ids  <- sf::st_read(cons_areas_hex_path(cfg), quiet = TRUE)$h3_index
 
   richness <- sf::st_read(samp_cfg$hex_richness_path, quiet = TRUE) |> sf::st_drop_geometry()
   well_samp_cells <- richness |>

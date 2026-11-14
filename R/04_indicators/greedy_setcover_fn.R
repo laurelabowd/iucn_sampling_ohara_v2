@@ -45,8 +45,8 @@ build_greedy_output_dir <- function(year, taxon, cfg = config, taxa_resolved = N
 
 ### Region hex grid annotated with a 0/1 cons_area flag.
 .hex_grid_with_cons <- function(cfg = config) {
-  grid <- sf::st_read(cfg$paths$hex_grid, quiet = TRUE)
-  cons_ids <- sf::st_read(cfg$paths$cons_areas_hex, quiet = TRUE)$h3_index
+  grid <- sf::st_read(hex_grid_path(cfg), quiet = TRUE)
+  cons_ids <- sf::st_read(cons_areas_hex_path(cfg), quiet = TRUE)$h3_index
   dplyr::mutate(grid, cons_area = as.integer(h3_index %in% cons_ids))
 }
 

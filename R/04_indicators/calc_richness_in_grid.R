@@ -41,7 +41,7 @@ calc_richness_in_grid <- function(taxon, year, cfg = config, samp_cfg = NULL) {
                      n_records = sum(tot_obs, na.rm = TRUE), .groups = "drop") |>
     dplyr::mutate(h3_index = as.character(h3_index))
 
-  grid <- sf::st_read(cfg$paths$hex_grid, quiet = TRUE)
+  grid <- sf::st_read(hex_grid_path(cfg), quiet = TRUE)
   richness_sf <- dplyr::left_join(grid, summary, by = "h3_index") |>
     dplyr::mutate(n_species = tidyr::replace_na(n_species, 0L),
                   n_records = tidyr::replace_na(n_records, 0L))
