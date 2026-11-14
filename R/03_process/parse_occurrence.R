@@ -9,7 +9,7 @@
 ### GBIF only, OBIS only, or both. If a taxon has `obis_dataset_path`
 ### (taxa_config) and OBIS is enabled, the OBIS parquet from download_obis.R is
 ### merged in. An occurrence found in both OBIS and GBIF (same
-### coordinates to ~11 m and same date) is kept once, as the OBIS record. Output
+### coordinates to ~11 m and same date) is kept once, as the GBIF record. Output
 ### gains `source` ("obis"/"gbif") and `record_id` columns.
 ###
 ### Species come from the master crosswalk's `name_gbif` (the GBIF accepted
@@ -79,7 +79,7 @@ occ_dedup_key <- function(df, digits = 4) {
 }
 
 ### Merge OBIS into GBIF for one species-year. Where an OBIS and a GBIF record
-### share a key (see occ_dedup_key), only the OBIS record is kept. Duplicates
+### share a key (see occ_dedup_key), only the GBIF record is kept. Duplicates
 ### within a single source are left for cleaning (cc_dupl) to handle.
 ### Returns list(data, n_gbif, n_obis, n_dup).
 merge_obis_gbif <- function(gbif, obis, gbif_cols, digits = 4) {
@@ -95,31 +95,24 @@ merge_obis_gbif <- function(gbif, obis, gbif_cols, digits = 4) {
     return(list(data = gbif, n_gbif = nrow(gbif), n_obis = 0L, n_dup = 0L))
   }
   obis <- .align_obis(obis, gbif_cols, gbif)
-  dup <- occ_dedup_key(gbif, digits) %in% occ_dedup_key(obis, digits)
-  list(data = dplyr::bind_rows(obis, gbif[!dup, , drop = FALSE]),
+  dup <- occ_dedup_key(obis, digits) %in% occ_dedup_key(gbif, digits)
+  list(data = dplyr::bind_rows(gbif, obis[!dup, , drop = FALSE]),
        n_gbif = nrow(gbif), n_obis = n_obis, n_dup = sum(dup))
 }
 
-### Write one species-year subset from GBIF and/or OBIS (a NULL dataset means that
-### source is off); returns a one-row status tibble.
-write_occurrence_subset <- function(dataset, target_species, target_year,
-                              species_col, year_col, columns_to_keep, output_dir,
-                              obis_dataset = NULL) {
-  gbif <- NULL
-  if (!is.null(dataset)) {
-    gbif <- dataset |>
-      dplyr::filter(.data[[year_col]] == target_year,
-                    .data[[species_col]] == target_species) |>
-      dplyr::select(dplyr::all_of(columns_to_keep)) |>
-      dplyr::collect()
+### Write one species-year subset from already-collected GBIF and/or OBIS tables
+### (NULL means that source is off). `gbif`/`obis` are pre-split to the target year
+### by the caller; species is matched here, in memory. Returns a one-row status tibble.
+write_occurrence_subset <- function(gbif, obis, target_species, target_year,
+                                    columns_to_keep, output_dir) {
+  if (!is.null(gbif)) {
+    gbif <- gbif[!is.na(gbif$species) & gbif$species == target_species,
+                 columns_to_keep, drop = FALSE]
   }
-
-  obis <- NULL
-  if (!is.null(obis_dataset)) {
-    obis <- obis_dataset |>
-      dplyr::filter(year == target_year,
-                    species == target_species | scientificName == target_species) |>
-      dplyr::collect()
+  if (!is.null(obis)) {
+    hit <- (!is.na(obis$species) & obis$species == target_species) |
+           (!is.na(obis$scientificName) & obis$scientificName == target_species)
+    obis <- obis[hit, , drop = FALSE]
   }
 
   m <- merge_obis_gbif(gbif, obis, columns_to_keep)
@@ -136,9 +129,15 @@ write_occurrence_subset <- function(dataset, target_species, target_year,
                         paste0(standardize_species_name(target_species), "_occs.parquet"))
   arrow::write_parquet(res, sink = out_path)
 
-  tibble::tibble(species = target_species, year = target_year,
-                 rows = nrow(res), gbif_rows = m$n_gbif, obis_rows = m$n_obis,
-                 dup_dropped = m$n_dup, file_path = out_path, status = "written")
+  tibble::tibble(species = target_species, 
+                 year    = target_year,
+                 rows    = nrow(res), 
+                 gbif_rows   = m$n_gbif, 
+                 obis_rows   = m$n_obis,
+                 dup_dropped = m$n_dup, 
+                 ### ensure path is relative
+                 file_path   = fs::path_rel(out_path, start = here()),
+                 status      = "written")
 }
 
 ### Parse one taxon across all configured years.
@@ -160,7 +159,8 @@ parse_one_taxon <- function(taxon, cfg = config, taxa_cfg = taxa_config) {
       stop(glue("GBIF dataset not found for '{taxon}' at {dataset_path}. ",
                 "Run download_gbif first, or point taxa_config at your data."))
     }
-    remove_empty_files(dataset_path)
+    ### GBIF partitions are extensionless (000000, 000001, ...), and one is zero-byte.
+    remove_empty_files(dataset_path, pattern = "\\.parquet$|^[0-9]+$")
     dataset <- arrow::open_dataset(dataset_path)
   }
 
@@ -184,15 +184,37 @@ parse_one_taxon <- function(taxon, cfg = config, taxa_cfg = taxa_config) {
   cols <- if (use_gbif) resolve_columns_to_keep(dataset, tcfg$gbif_columns_keep) else tcfg$gbif_columns_keep
   base_dir <- file.path(taxon_processed_dir(taxon, cfg), "occurrences")
 
-  grid <- tidyr::expand_grid(species = species_vec, year = as.integer(cfg$years))
+  years <- as.integer(cfg$years)
+
+  ### Scan each source once, restricted to this taxon's species and years, then
+  ### split by year so each species-year lookup is an in-memory subset.
+  gbif_by_year <- NULL
+  if (use_gbif) {
+    gbif_by_year <- dataset |>
+      dplyr::filter(species %in% species_vec, year %in% years) |>
+      dplyr::select(dplyr::all_of(union(cols, c("species", "year")))) |>
+      dplyr::collect() |>
+      (\(d) split(d, factor(d$year, levels = years)))()
+  }
+  obis_by_year <- NULL
+  if (use_obis) {
+    obis_by_year <- obis_dataset |>
+      dplyr::filter(species %in% species_vec | scientificName %in% species_vec,
+                    year %in% years) |>
+      dplyr::collect() |>
+      (\(d) split(d, factor(d$year, levels = years)))()
+  }
+
+  grid <- tidyr::expand_grid(species = species_vec, year = years)
   results <- purrr::pmap_dfr(
     list(grid$species, grid$year),
-    function(species, year) write_occurrence_subset(
-      dataset, species, year,
-      species_col = "species", year_col = "year",
-      columns_to_keep = cols, output_dir = base_dir,
-      obis_dataset = obis_dataset
-    )
+    function(species, year) {
+      yr <- as.character(year)
+      write_occurrence_subset(
+        gbif_by_year[[yr]], obis_by_year[[yr]], species, year,
+        columns_to_keep = cols, output_dir = base_dir
+      )
+    }
   )
 
   ### Per-taxon run log.
