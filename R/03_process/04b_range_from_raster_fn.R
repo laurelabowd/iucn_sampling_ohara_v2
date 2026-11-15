@@ -3,7 +3,7 @@
 ### =============================================================================
 ###
 ### Convert the eBird bird presence raster (from 03_get_ebird_status.R) into the same
-### per-species hex range-cell table the shapefile path produces, so downstream
+### per-species hex range-cell table the polygon path produces, so downstream
 ### indicators treat all taxa identically.
 ###
 ### Reworked from the bird zonal block embedded in get_hex_grid.R (the mangled
@@ -30,7 +30,9 @@ suppressPackageStartupMessages({
 }
 
 build_range_from_raster <- function(taxon = "bird", cfg = config,
-                                    taxa_cfg = taxa_config, samp_cfg = NULL) {
+                                    taxa_cfg = taxa_config, samp_cfg = NULL,
+                                    progress = c("terse", "verbose", "quiet")) {
+  progress <- match.arg(progress)
   tcfg <- taxa_cfg[[taxon]]
   if (!identical(tcfg$range_source, "raster")) {
     message(glue::glue("[{taxon}] range_source is not raster; skipped.")); return(invisible(NULL))
@@ -67,7 +69,7 @@ build_range_from_raster <- function(taxon = "bird", cfg = config,
   ensure_parent_dir(samp_cfg$range_cells_path)
   arrow::write_parquet(wide, samp_cfg$range_cells_path)
 
-  ### Per-species totals (region + conservation areas), same outputs as shapefiles.
+  ### Per-species totals (region + conservation areas), same outputs as polygons.
   cons_ids <- sf::st_read(cons_areas_hex_path(cfg), quiet = TRUE)$h3_index
   tot <- wide |> dplyr::summarize(dplyr::across(-h3_index, ~sum(.x, na.rm = TRUE))) |>
     tidyr::pivot_longer(dplyr::everything(), names_to = "species", values_to = "tot_range_cells")

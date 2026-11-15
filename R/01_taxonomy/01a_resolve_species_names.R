@@ -19,7 +19,7 @@
 ### Output: ONE tidy tibble, one row per submitted name, birds and non-birds
 ### together, with a stable schema (see the return docs on resolve_species_names).
 ###
-### The shapefile linkage (range_shapefile_name) is added on TOP of this output by
+### The polygon linkage (range_polygon_name) is added on TOP of this output by
 ### 01_build_species_crosswalk.R, reusing the same GBIF-key bridge.
 
 suppressPackageStartupMessages({

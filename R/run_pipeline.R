@@ -24,15 +24,15 @@ source(here("config", "taxa_config.R"))
 source(here("config", "sampling_config.R"))
 source(here("R", "00_utils.R"))
 
-source(here("R", "01_taxonomy", "01_build_species_crosswalk.R"))
-source(here("R", "02_acquire", "01_download_gbif.R"))
-source(here("R", "02_acquire", "02_download_obis.R"))
-source(here("R", "02_acquire", "03_get_ebird_status.R"))
-source(here("R", "02_acquire", "04_get_redlist_status.R"))
-source(here("R", "03_process", "01_parse_occurrence.R"))
-source(here("R", "03_process", "02_clean_occurrence.R"))
-source(here("R", "03_process", "03_build_hex_grid.R"))
-source(here("R", "03_process", "04_range_from_shapefiles_run.R"))
+source(here("R", "01_taxonomy",   "01_build_species_crosswalk.R"))
+source(here("R", "02_acquire",    "01_download_gbif.R"))
+source(here("R", "02_acquire",    "02_download_obis.R"))
+source(here("R", "02_acquire",    "03_get_ebird_status.R"))
+source(here("R", "02_acquire",    "04_get_redlist_status.R"))
+source(here("R", "03_process",    "01_parse_occurrence.R"))
+source(here("R", "03_process",    "02_clean_occurrence.R"))
+source(here("R", "03_process",    "03_build_hex_grid.R"))
+source(here("R", "03_process",    "04_range_from_spatial_run.R"))
 source(here("R", "04_indicators", "01_calc_richness_in_grid.R"))
 source(here("R", "04_indicators", "02_find_sampled_cells_run.R"))
 source(here("R", "04_indicators", "03_find_optimal_sampling_locs_run.R"))
@@ -50,7 +50,7 @@ apply_sample_config <- function() {
   config$species_list_default    <<- s("species_list.csv")
   for (t in c("reptile", "mammal")) {
     taxa_config[[t]]$species_source$csv_path <<- s("species_list.csv")
-    taxa_config[[t]]$shapefile_dir           <<- s("ranges", t)
+    taxa_config[[t]]$polygon_dir             <<- s("ranges", t)
     taxa_config[[t]]$gbif_dataset_path       <<- s("gbif", t, "occurrence.parquet")
   }
   message("Sample mode: taxa = reptile, mammal; inputs from data/sample/.")
@@ -69,25 +69,27 @@ run_pipeline <- function(sample = FALSE, do_acquire = !sample) {
               config$paths$crosswalk, overwrite = TRUE)
     message("Sample mode: using committed data/sample/species_crosswalk.csv")
   } else {
-    build_species_crosswalk()
+    build_species_crosswalk(force = config$force)
   }
 
+  # system.time({
   if (isTRUE(do_acquire)) {
     message("== Stage 1: acquire (API-gated) ==")
-    run_gbif_downloads(max_age_days = config$gbif_max_age_days)
+    run_gbif_downloads(max_age_days = config$gbif_max_age_days, force = config$force)
     ### Only taxa with an obis_dataset_path in taxa_config are fetched from OBIS.
-    run_obis_downloads()
+    run_obis_downloads(force = config$force)
     ### get_ebird_status / run_redlist_status are opt-in; call directly if needed.
     ### NOTE: for IUCN downloads with meta, all the redlist status is in there already!
   } else {
     message("== Stage 1: acquire skipped (using provided inputs) ==")
   }
-
+  # }) ### 40 minutes for mammals and abalone! let's see if we can improve that
+  
   message("== Stage 2: process ==")
-  build_hex_grid()
-  run_occurrence_parse()
-  run_clean_occurrence()
-  run_build_ranges()
+  build_hex_grid(force = config$force) ### 5.5 min level 4
+  run_occurrence_parse(force = config$force) ### 45 s for mammals/abalone
+  run_clean_occurrence(force = config$force) ### 5 min for mammals/abalne
+  system.time({run_build_ranges()})
   run_richness_in_grid()
 
   message("== Stage 3: indicators ==")

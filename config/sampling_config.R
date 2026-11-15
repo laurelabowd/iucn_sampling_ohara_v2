@@ -42,7 +42,7 @@ make_sampling_config <- function(year, suffix = "", cfg = config,
       range_source = tcfg$range_source,
       ### parsed/cleaned occurrences for this taxon-year
       occ_dir      = taxon_year_occ_dir(taxon, year, cfg),
-      ### per-species range -> hex cells (from shapefiles or the eBird raster).
+      ### per-species range -> hex cells (from polygons or the eBird raster).
       ### Ranges are static across years, so this path is not year-keyed.
       range_cells_path = file.path(proc_dir, "range_grid_cells.parquet"),
       ### richness + observation counts per hex cell

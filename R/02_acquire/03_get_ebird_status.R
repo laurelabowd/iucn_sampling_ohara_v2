@@ -3,13 +3,13 @@
 ### =============================================================================
 ###
 ### Birds use range_source = "raster": their ranges come from eBird Status &
-### Trends seasonal occurrence products rather than range shapefiles. This script
+### Trends seasonal occurrence products rather than range polygons. This script
 ### downloads those products for the crosswalk's bird species, crops them to the
 ### study region, and writes a multi-layer binary presence raster (one layer per
 ### species) at taxa_config$bird$ebird_richness_raster.
 ###
 ### 04b_range_from_raster_fn.R then converts that raster to per-species hex range cells,
-### producing the same range_grid_cells.parquet shape as the shapefile path.
+### producing the same range_grid_cells.parquet shape as the polygon path.
 ###
 ### API-gated: needs EBIRDST_KEY and EBIRDST_DATA_DIR in .Renviron.
 ### Reworked from get_ebird_status.R: species come from the crosswalk (ebird_code),

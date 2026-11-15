@@ -10,13 +10,14 @@
 ### Each taxon defines:
 ###   species_source        where the raw species list comes from (CSV or Google
 ###                         Sheet) and which column holds the scientific name.
-###   range_source          "shapefile" -> ranges come from per-species range
-###                         shapefiles (reptiles, mammals, marine mammals).
-###                         "raster"    -> ranges come from an eBird Status &
-###                         Trends abundance raster (birds).
-###   shapefile_dir         (shapefile taxa) folder of per-species range shapefiles.
-###   shapefile_name_field  (shapefile taxa) attribute holding the species name in
-###                         each shapefile (the source's own taxonomy; Stage 0
+###   range_source          "polygon" -> ranges come from per-species range
+###                         vector source (e.g., IUCN rangemap vector data).
+###                         "raster"  -> ranges come from a raster source (e.g.,
+###                         eBird data or AquaX).  Note, "shapefile" or "vector" 
+###                         also work for vector/polygon data
+###   polygon_dir           (polygon taxa) folder of per-species range polygons.
+###   polygon_name_field    (polygon taxa) attribute holding the species name in
+###                         each polygon (the source's own taxonomy; Stage 0
 ###                         resolves it to the GBIF key so it can be joined).
 ###   obis_dataset_path     (marine taxa) path to OBIS occurrence dataset (parquet).
 ###   gbif_dataset_path     raw GBIF/OBIS occurrence dataset (parquet) for this taxon,
@@ -66,16 +67,16 @@ taxa_config <- list(
   # ),
 
   ### Marine mammals: species list from IUCN spatial data extraction
-  ### see R/_pre_analysis scripts, ranges from IUCN Red List shapefiles
+  ### see R/_pre_analysis scripts, ranges from IUCN Red List polygons
   mammals_marine = list(
     taxon                = "mammals_marine",
     species_source       = .species_source(
       "mammals_marine",
       csv_path = file.path(config$paths$data_raw, "iucn_species_list.csv")
     ),
-    range_source         = "shapefile",
-    shapefile_dir        = file.path(config$paths$data_raw, "iucn", "mammals_marine"),
-    shapefile_name_field = "sci_name",    ### IUCN field holding species name
+    range_source         = "polygon",
+    polygon_dir          = file.path(config$paths$data_raw, "iucn", "mammals_marine"),
+    polygon_name_field   = "sci_name",    ### IUCN field holding species name
     obis_dataset_path    = file.path(config$paths$data_raw, "obis", "mammals_marine",
                                      "occurrence.parquet"),
     gbif_dataset_path    = file.path(config$paths$data_raw, "gbif", "mammals_marine",
@@ -90,9 +91,9 @@ taxa_config <- list(
       "abalones",
       csv_path = file.path(config$paths$data_raw, "iucn_species_list.csv")
     ),
-    range_source         = "shapefile",
-    shapefile_dir        = file.path(config$paths$data_raw, "iucn", "abalones"),
-    shapefile_name_field = "sci_name",    ### IUCN field holding species name
+    range_source         = "polygon",
+    polygon_dir          = file.path(config$paths$data_raw, "iucn", "abalones"),
+    polygon_name_field   = "sci_name",    ### IUCN field holding species name
     obis_dataset_path    = file.path(config$paths$data_raw, "obis", "abalones",
                                      "occurrence.parquet"),
     gbif_dataset_path    = file.path(config$paths$data_raw, "gbif", "abalones",

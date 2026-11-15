@@ -11,7 +11,7 @@ Stage 0  TAXONOMY   ▼
   build_species_crosswalk()  ⚡GBIF/eBird
     → data/processed/species_crosswalk.csv
       one row per species: name_input · name_accepted · name_gbif ·
-      gbif_usage_key · ebird_code · range_shapefile_name · needs_review
+      gbif_usage_key · ebird_code · range_polygon_name · needs_review
                     │  (canonical name + keys used by every stage below)
 Stage 1  ACQUIRE    ▼
   run_gbif_downloads()        ⚡GBIF   → data/raw/gbif/<taxon>/occurrence.parquet
@@ -22,7 +22,7 @@ Stage 2  PROCESS    ▼
   build_hex_grid()            → hex_grid.gpkg, cons_areas_hex.gpkg
   run_occurrence_parse()            → per-species-year *_occs.parquet
   run_clean_occurrence()            → *_clean.parquet (CoordinateCleaner + H3 thinning)
-  run_build_ranges()          → range_grid_cells.parquet  (shapefiles OR raster)
+  run_build_ranges()          → range_grid_cells.parquet  (polygons OR raster)
                                  + spp_cells_in_region / _in_cons_area.csv
   run_richness_in_grid()      → hex_species_richness_<year>.gpkg
                     │
@@ -37,13 +37,13 @@ Stage 3  INDICATORS ▼
 Everything keys on the **GBIF canonical name** (`name_gbif`):
 
 - GBIF occurrences carry `species = name_gbif` (parse filters on it).
-- Range shapefiles carry their own `SName`; Stage 0 resolves `SName` → GBIF key
-  → `name_gbif` and stores it as `range_shapefile_name`, so range cells and
+- Range polygons carry their own `SName`; Stage 0 resolves `SName` → GBIF key
+  → `name_gbif` and stores it as `range_polygon_name`, so range cells and
   occurrence data line up on one canonical name.
 - eBird layers are renamed from `ebird_name` → `name_gbif` in `range_from_raster`.
 
 If a species is flagged `needs_review` in the crosswalk (fuzzy GBIF match, no
-eBird match, or no range shapefile matched), check it there before trusting
+eBird match, or no range polygon matched), check it there before trusting
 downstream numbers.
 
 ## Cell identity

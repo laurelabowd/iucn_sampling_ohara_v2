@@ -23,9 +23,9 @@ each input file.
 Add or edit one entry per taxon:
 - `species_source` — `csv_path` (or `sheet_url`/`sheet_name`) and `sci_name_col`.
   `taxon_filter` filters a shared multi-taxon list by a `taxon` column.
-- `range_source` — `"shapefile"` (per-species range shapefiles) or `"raster"`
+- `range_source` — `"polygon"` (per-species range polygons; `"shapefile"`/`"vector"` also accepted) or `"raster"`
   (eBird Status & Trends abundance, birds).
-- `shapefile_dir` + `shapefile_name_field` — folder of range shapefiles and the
+- `polygon_dir` + `polygon_name_field` — folder of range polygons and the
   attribute holding the species name (default `"SName"`).
 - `gbif_dataset_path` — where the raw GBIF download for this taxon lands.
 - `gbif_columns_keep` — shared; keep as-is unless your GBIF export differs.
@@ -46,9 +46,12 @@ Sceloporus occidentalis,reptile
 Sylvilagus bachmani,mammal
 ```
 
-### Range shapefiles (one per species)
-A polygon layer per species in `shapefile_dir`, each with a name attribute
-(`shapefile_name_field`, e.g. `SName`) holding that species' name. Names need
+### Range polygons
+Vector files (`.gpkg` or `.shp`) in `polygon_dir`, searched recursively. Files
+may be multi-species (e.g. IUCN geopackages, one species per row of a layer) or
+one file per species. Each layer needs a name attribute (`polygon_name_field`,
+e.g. `sci_name`) holding the species name. Stage 0 records each species' file
+path and layer in the crosswalk (`range_polygon_path`, `range_polygon_layer`). Names need
 not match GBIF exactly — Stage 0 resolves them to the GBIF key and records the
 link in the crosswalk.
 
@@ -70,8 +73,8 @@ to range cells. Or point `taxa_config$bird$ebird_richness_raster` at your own
 multi-layer presence raster.
 
 ## 3. Checklist to move to a new study
-1. Replace the species list, range shapefiles, and conservation-areas layer.
+1. Replace the species list, range polygons, and conservation-areas layer.
 2. Set `region`, `years`, and `crs` in `config/config.R`.
-3. Set each taxon's `species_source`, `range_source`, and `shapefile_dir`.
+3. Set each taxon's `species_source`, `range_source`, and `polygon_dir`.
 4. Add API keys to `.Renviron`.
 5. `run_pipeline()` — or run stage functions individually.

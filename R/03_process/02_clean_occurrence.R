@@ -101,13 +101,6 @@ cc_near_ref <- function(d, kind, buffer, lon = "decimalLongitude", lat = "decima
   d[is.na(hit[!duplicated(hit[, 1]), 2]), ]
 }
 
-### Print `...` if `progress` is at least `level` ("terse" < "verbose").
-.progress_msg <- function(progress, level, ...) {
-  rank <- c(quiet = 0, terse = 1, verbose = 2)
-  if (rank[[progress]] >= rank[[level]]) message(...)
-  invisible()
-}
-
 ### Clean + thin one species file. Returns a one-row status tibble (never stops).
 clean_one_file <- function(input_path, output_dir, cfg = config,
                            progress = c("quiet", "terse", "verbose")) {

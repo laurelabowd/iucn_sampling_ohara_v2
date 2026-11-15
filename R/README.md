@@ -24,12 +24,12 @@ Stage 0 crosswalk) and the **H3 cell id** (`h3_index`).
 
 Runs first. Produces `data/processed/species_crosswalk.csv`, the one
 authoritative table linking each species across its input name, GBIF key, eBird
-code, and range-shapefile name. **API-gated** (GBIF/eBird).
+code, and range-polygon name. **API-gated** (GBIF/eBird).
 
 | File | Role |
 |------|------|
 | [`01a_resolve_species_names.R`](01_taxonomy/01a_resolve_species_names.R) | The taxonomy engine. Turns a raw species list into a non-destructive crosswalk: `gna_parse` flags malformed names, then the GBIF backbone resolves synonyms/authorities as the authoritative source. |
-| [`01_build_species_crosswalk.R`](01_taxonomy/01_build_species_crosswalk.R) | Stage 0 driver. Wraps `resolve_species_names()` and adds `range_shapefile_name` / `range_shapefile_path`, reconciling each range shapefile's vendor name to the canonical GBIF name. |
+| [`01_build_species_crosswalk.R`](01_taxonomy/01_build_species_crosswalk.R) | Stage 0 driver. Wraps `resolve_species_names()` and adds `range_polygon_name` / `range_polygon_path` / `range_polygon_layer` (works for multi-species geopackages and single-species files), reconciling each range polygon's vendor name to the canonical GBIF name. |
 
 ## Stage 1 — acquire (`02_acquire/`)
 
@@ -52,9 +52,9 @@ indicators consume.
 | [`03_build_hex_grid.R`](03_process/03_build_hex_grid.R) | Builds the two shared spatial layers: every H3 cell covering the study region, and the subset inside conservation areas (with agency / GAP attributes). Region and resolution come from config. |
 | [`01_parse_occurrence.R`](03_process/01_parse_occurrence.R) | Subsets each taxon's raw GBIF and/or OBIS data into one parquet per species-year (GBIF wins on duplicates), filtering on the crosswalk's `name_gbif`. |
 | [`02_clean_occurrence.R`](03_process/02_clean_occurrence.R) | Runs CoordinateCleaner + config-driven quality filters and H3 thinning (one record per hex cell) on each per-species-year parquet. |
-| [`04a_range_from_shapefiles_fn.R`](03_process/04a_range_from_shapefiles_fn.R) | **Canonical range step.** Converts per-species range shapefiles into a wide table of H3 range cells (one 0/1 column per species), plus per-species totals overall and within conservation areas. |
-| [`04b_range_from_raster_fn.R`](03_process/04b_range_from_raster_fn.R) | Bird alternative. Converts the eBird presence raster into the same per-species hex range-cell table the shapefile path produces, so downstream treats all taxa identically. |
-| [`04_range_from_shapefiles_run.R`](03_process/04_range_from_shapefiles_run.R) | Range-building driver. Dispatches by each taxon's `range_source`: `"shapefile"` → shapefile fn, `"raster"` → raster fn. Both write the same `range_grid_cells.parquet` shape. |
+| [`04a_range_from_polygons_fn.R`](03_process/04a_range_from_polygons_fn.R) | **Canonical range step.** Converts per-species range polygons into a wide table of H3 range cells (one 0/1 column per species), plus per-species totals overall and within conservation areas. |
+| [`04b_range_from_raster_fn.R`](03_process/04b_range_from_raster_fn.R) | Bird alternative. Converts the eBird presence raster into the same per-species hex range-cell table the polygon path produces, so downstream treats all taxa identically. |
+| [`04_range_from_spatial_run.R`](03_process/04_range_from_spatial_run.R) | Range-building driver. Dispatches by each taxon's `range_source`: `"polygon"` → polygon fn, `"raster"` → raster fn. Both write the same `range_grid_cells.parquet` shape. |
 | [`01_calc_richness_in_grid.R`](04_indicators/01_calc_richness_in_grid.R) | *(listed under indicators below — richness per hex cell.)* |
 
 ## Stage 3 — indicators (`04_indicators/`)

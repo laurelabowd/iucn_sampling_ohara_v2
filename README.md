@@ -32,7 +32,7 @@ R/
   01_taxonomy/    01a_resolve_species_names.R, 01_build_species_crosswalk.R   <- runs FIRST
   02_acquire/     01_download_gbif.R, 03_get_ebird_status.R, 04_get_redlist_status.R
   03_process/     01_parse_occurrence.R, 02_clean_occurrence.R, 03_build_hex_grid.R,
-                  range_from_shapefiles_fn/_run.R, 04b_range_from_raster_fn.R
+                  range_from_polygons_fn.R, 04_range_from_spatial_run.R, 04b_range_from_raster_fn.R
   04_indicators/  01_calc_richness_in_grid.R, find_sampled_cells_*,
                   find_optimal_sampling_locs_*, greedy_setcover_*
   run_pipeline.R  <- orchestrates all stages
@@ -43,7 +43,7 @@ docs/     adapting-to-your-data.md, pipeline.md
 
 Name resolution is **Stage 0** on purpose: the crosswalk it writes
 (`data/processed/species_crosswalk.csv`) is the single join key linking each
-species across its input name, GBIF key, eBird code, and range-shapefile name.
+species across its input name, GBIF key, eBird code, and range-polygon name.
 Every later stage joins on it. See `docs/pipeline.md`.
 
 ---
@@ -86,10 +86,10 @@ sampling plan (`.../sampling_optimized/<year>/greedy_selected_cells.gpkg`).
 ## Run on your own data
 
 1. Put your inputs in place (see `docs/adapting-to-your-data.md` for exact file
-   shapes): a species-list CSV, per-species range shapefiles, and a
+   shapes): a species-list CSV, per-species range polygons, and a
    conservation-areas layer.
 2. Edit `config/config.R` (region, years, CRS) and `config/taxa_config.R`
-   (per-taxon species source, `range_source`, shapefile dir).
+   (per-taxon species source, `range_source`, polygon dir).
 3. Add your API keys to `.Renviron`.
 4. Run:
 
@@ -148,7 +148,7 @@ The pipeline is designed to consume:
   > Sacramento, CA. Accessed \<date\>.
   > https://www.wildlife.ca.gov/Data/CWHR
 
-  (Each shapefile carries the species' scientific name in the `SName` field, which
+  (Each polygon file carries the species' scientific name in the `SName` field, which
   Stage 0 reconciles to the GBIF canonical name.)
 
 - **Occurrence records — GBIF.** Every GBIF download issues its own DOI; cite that

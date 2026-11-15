@@ -11,6 +11,20 @@ suppressPackageStartupMessages({
   library(stringr)
 })
 
+### Print `...` if `progress` is at least `level` ("terse" < "verbose").
+.progress_msg <- function(progress, level, ...) {
+  rank <- c(quiet = 0, terse = 1, verbose = 2)
+  if (rank[[progress]] >= rank[[level]]) message(...)
+  invisible()
+}
+
+### TRUE if a taxon's range_source denotes polygon (vector) range data.
+### "polygon" is canonical; "shapefile" and "vector" are accepted aliases.
+is_polygon_source <- function(range_source) {
+  !is.null(range_source) && length(range_source) == 1 &&
+    range_source %in% c("polygon", "shapefile", "vector")
+}
+
 ### Create a directory (and parents) if it does not already exist. Returns `path`
 ### invisibly so it can be used inline.
 ensure_dir <- function(path) {
