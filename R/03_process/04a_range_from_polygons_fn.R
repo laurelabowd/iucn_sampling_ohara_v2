@@ -55,6 +55,36 @@ suppressPackageStartupMessages({
            error = function(e) NA_real_)
 }
 
+### H3 cells for a polygon set. polygon_to_cells() fails (code 1) on polygons that
+### span most of the globe in longitude (e.g. circumpolar Southern Ocean ranges with
+### edges on the antimeridian), so on failure the polygons are cut into 60-degree
+### longitude strips and the cells united. Planar clipping, hence s2 is switched off.
+.polygon_cells <- function(sp_sf, res) {
+
+  ### attempt to convert polygon to cells
+  direct <- tryCatch(h3jsr::polygon_to_cells(sp_sf, res = res), error = function(e) NULL)
+  ### if !is.null, conversion was successful - return the result!
+  if (!is.null(direct)) return(direct)
+
+  ### if not successful, could be invalid geom, or could be too
+  ### wide of polygon: convert to planar geom, make_valid, cut to strips,
+  ### then convert each strip to polygons and rejoin
+  old_s2 <- suppressMessages(sf::sf_use_s2(FALSE))
+  on.exit(suppressMessages(sf::sf_use_s2(old_s2)), add = TRUE)
+  geom <- sf::st_make_valid(sf::st_geometry(sp_sf))
+  sf::st_crs(geom) <- 4326
+  strips <- lapply(seq(-180, 120, by = 60), function(x0) {
+    sf::st_sfc(sf::st_polygon(list(rbind(c(x0, -90), c(x0 + 60, -90), c(x0 + 60, 90),
+                                         c(x0, 90), c(x0, -90)))), crs = 4326)
+  })
+  unique(unlist(lapply(strips, function(s) {
+    piece <- suppressMessages(suppressWarnings(sf::st_intersection(geom, s)))
+    piece <- piece[!sf::st_is_empty(piece)]
+    if (length(piece) == 0) return(NULL)
+    suppressMessages(h3jsr::polygon_to_cells(sf::st_sf(geometry = piece), res = res))
+  })))
+}
+
 ### Read one polygon layer once and return H3 cells for each requested species.
 ### A layer may hold many species (rows matched on `name_field`) or just one.
 ### `species_names` maps polygon names to canonical species: a data frame with
@@ -64,23 +94,33 @@ suppressPackageStartupMessages({
 ### progress line (terse) so it is attributed to the species being processed.
 .cells_for_layer <- function(path, layer, species_names, name_field, cfg = config,
                              progress = "terse", taxon = "") {
+
+  ### Announce which file/layer is being read and how many species we want from it
   lyr_lab <- if (is.na(layer)) "default layer" else glue("layer '{layer}'")
   .progress_msg(progress, "verbose",
                 glue("  [{taxon}] reading {basename(path)} ({lyr_lab}, ",
                      "{nrow(species_names)} species to extract)"))
+  ### Read the layer once (default layer if none was recorded in the crosswalk)
   range_sf <- if (is.na(layer)) sf::st_read(path, quiet = TRUE)
               else sf::st_read(path, layer = layer, quiet = TRUE)
+  ### Fail early (caught by the caller as a warning) if the species-name column is absent
   if (!name_field %in% names(range_sf)) {
     stop(glue("no field '{name_field}' in {basename(path)}"))
   }
+  ### Reproject once so every species shares the working CRS
   .progress_msg(progress, "verbose",
                 glue("  [{taxon}] {nrow(range_sf)} features read; transforming to working CRS"))
   range_sf <- sf::st_transform(range_sf, cfg$crs$working)
 
+  ### Process each requested species in turn and stack the results into one table
   purrr::pmap_dfr(species_names, function(range_polygon_name, species) {
+    ### Pull out all polygon features whose name matches this species
     sp_sf <- range_sf[as.character(range_sf[[name_field]]) %in% range_polygon_name, ]
+    
+    ### if no rows in this layer, spp not present in this layer; return empty value
     if (nrow(sp_sf) == 0) return(NULL)
 
+    ### Build a short description for progress messages: feature count (+ area if verbose)
     n_feat <- nrow(sp_sf)
     detail <- if (progress == "verbose") {
       glue(" ({n_feat} feature{if (n_feat > 1) 's' else ''}, {format(round(.area_km2(sp_sf)), big.mark = ',')} km2)")
@@ -89,9 +129,11 @@ suppressPackageStartupMessages({
     } else ""
     .progress_msg(progress, "verbose", glue("    {species}{detail}"))
 
-    t0 <- Sys.time()
+    ### Convert the polygons to H3 cells, timing it. Large ranges are slow, so the
+    ### h3jsr "might take a while" message is replaced with a species-specific one.
+    t0 <- Sys.time() ### (only used if "verbose")
     cells <- withCallingHandlers(
-      h3jsr::polygon_to_cells(sp_sf, res = cfg$hex_resolution) |> unlist(),
+      .polygon_cells(sp_sf, cfg$hex_resolution) |> unlist(),
       message = function(m) {
         if (grepl("might take a while", conditionMessage(m), fixed = TRUE)) {
           .progress_msg(progress, "terse",
@@ -100,10 +142,12 @@ suppressPackageStartupMessages({
         }
       }
     )
+    ### Drop duplicate cells (overlapping features) and make sure they are plain strings
     cells <- as.character(unique(cells))
     .progress_msg(progress, "verbose",
                   glue("      {length(cells)} cells in ",
                        "{round(as.numeric(difftime(Sys.time(), t0, units = 'secs')), 1)}s"))
+    # One row per cell for this species; n_features and source support later diagnostics
     tibble::tibble(species = species, h3_index = cells,
                    n_features = n_feat, source = paste(path, layer))
   })
@@ -182,6 +226,10 @@ build_range_from_polygons <- function(taxon, cfg = config, taxa_cfg = taxa_confi
     long <- dplyr::select(long, species, h3_index)
   }
 
+  if (nrow(long) == 0) {
+    stop(glue("[{taxon}] no range cells were built for any species; see warnings above."),
+         call. = FALSE)
+  }
   wide <- long |>
     dplyr::mutate(presence = 1L) |>
     dplyr::distinct() |>

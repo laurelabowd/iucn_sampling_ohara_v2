@@ -89,7 +89,8 @@ run_pipeline <- function(sample = FALSE, do_acquire = !sample) {
   build_hex_grid(force = config$force) ### 5.5 min level 4
   run_occurrence_parse(force = config$force) ### 45 s for mammals/abalone
   run_clean_occurrence(force = config$force) ### 5 min for mammals/abalne
-  system.time({run_build_ranges()})
+  system.time({run_build_ranges(force = config$force)})
+    ### abalone pretty quick; some mammals very slow: 2 hours total
   run_richness_in_grid()
 
   message("== Stage 3: indicators ==")

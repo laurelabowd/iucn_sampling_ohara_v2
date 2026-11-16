@@ -66,6 +66,23 @@ taxa_config <- list(
   #   gbif_columns_keep    = gbif_columns_keep
   # ),
 
+  ### Abalones: species list from IUCN spatial data extraction
+  abalones = list(
+    taxon                = "abalones",
+    species_source       = .species_source(
+      "abalones",
+      csv_path = file.path(config$paths$data_raw, "iucn_species_list.csv")
+    ),
+    range_source         = "polygon",
+    polygon_dir          = file.path(config$paths$data_raw, "iucn", "abalones"),
+    polygon_name_field   = "sci_name",    ### IUCN field holding species name
+    obis_dataset_path    = file.path(config$paths$data_raw, "obis", "abalones",
+                                     "occurrence.parquet"),
+    gbif_dataset_path    = file.path(config$paths$data_raw, "gbif", "abalones",
+                                     "occurrence.parquet"),
+    gbif_columns_keep    = gbif_columns_keep
+  ),
+
   ### Marine mammals: species list from IUCN spatial data extraction
   ### see R/_pre_analysis scripts, ranges from IUCN Red List polygons
   mammals_marine = list(
@@ -80,23 +97,6 @@ taxa_config <- list(
     obis_dataset_path    = file.path(config$paths$data_raw, "obis", "mammals_marine",
                                      "occurrence.parquet"),
     gbif_dataset_path    = file.path(config$paths$data_raw, "gbif", "mammals_marine",
-                                     "occurrence.parquet"),
-    gbif_columns_keep    = gbif_columns_keep
-  ),
-
-  ### Abalones: species list from IUCN spatial data extraction
-  abalones = list(
-    taxon                = "abalones",
-    species_source       = .species_source(
-      "abalones",
-      csv_path = file.path(config$paths$data_raw, "iucn_species_list.csv")
-    ),
-    range_source         = "polygon",
-    polygon_dir          = file.path(config$paths$data_raw, "iucn", "abalones"),
-    polygon_name_field   = "sci_name",    ### IUCN field holding species name
-    obis_dataset_path    = file.path(config$paths$data_raw, "obis", "abalones",
-                                     "occurrence.parquet"),
-    gbif_dataset_path    = file.path(config$paths$data_raw, "gbif", "abalones",
                                      "occurrence.parquet"),
     gbif_columns_keep    = gbif_columns_keep
   )

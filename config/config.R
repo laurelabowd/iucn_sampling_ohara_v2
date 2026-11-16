@@ -114,7 +114,7 @@ config <- list(
 
   ### Ignore all caches and redo cached steps (downloads, name-resolution map,
   ### hex grid, parse, clean). run_pipeline() passes this to every such step.
-  force = TRUE,
+  force = FALSE,
 
   ### Re-download a taxon's GBIF data if the stored download is older than this
   ### many days (Inf = never expire). Kept outside `gbif_filters` so it does not
@@ -151,7 +151,7 @@ config <- list(
 
   ### --- Which taxa to run -------------------------------------------------
   ### Must match the names defined in config/taxa_config.R.
-  taxa = c('mammals_marine', 'abalones')
+  taxa = c('abalones', 'mammals_marine')
 )
 
 ### Is an occurrence source switched on? `source` is 'gbif' or 'obis'. A missing
