@@ -13,6 +13,10 @@ data/processed/
 output/
 update_docs/
 
+# --- Archived code (deprecated implementations, refactored versions) ----------
+*/_archive/
+_archive/
+
 # Large / binary geo + tabular formats
 *.rds
 *.gpkg

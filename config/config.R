@@ -112,14 +112,34 @@ config <- list(
                         'MACHINE_OBSERVATION', 'PRESERVED_SPECIMEN')
   ),
 
+  ### Where OBIS occurrences come from: TRUE = try AWS S3 GeoParquet first
+  ### (DuckDB; fast; no credentials), FALSE = API only. Falls back to API
+  ### automatically if S3 is unavailable or returns no data.
+  obis_use_aws = TRUE,
+
+  ### Re-download a taxon's OBIS data if the stored file is older than this
+  ### many days (Inf = never expire). Kept outside `obis_filters` so it does
+  ### not change the request hash.
+  obis_max_age_days = 180,
+
   ### Ignore all caches and redo cached steps (downloads, name-resolution map,
   ### hex grid, parse, clean). run_pipeline() passes this to every such step.
-  force = FALSE,
+  force = TRUE,
 
   ### Re-download a taxon's GBIF data if the stored download is older than this
   ### many days (Inf = never expire). Kept outside `gbif_filters` so it does not
   ### change the request hash.
   gbif_max_age_days = 180,
+
+  ### Where GBIF occurrences come from: 'snapshot' = one pass over the monthly GBIF
+  ### snapshot on AWS S3 (DuckDB; no credentials or queue; matches on species name),
+  ### or 'download' = the GBIF download API (taxon keys; queue wait).
+  gbif_source = 'snapshot',
+  ### Snapshot date (YYYY-MM-01), pinned so reruns reproduce the same data. 'latest'
+  ### resolves to the newest snapshot (logged and recorded in the manifest).
+  gbif_snapshot_date = '2026-11-01',
+  ### Optional snapshot scan tuning (defaults: 20 chunks, 6 threads, 12GB memory):
+  # gbif_snapshot_chunks = 20, gbif_snapshot_threads = 6, gbif_snapshot_memory = '12GB',
 
   ### --- Paths (roots only; per-taxon/year paths are derived from these) -------
   paths = list(
