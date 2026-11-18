@@ -91,18 +91,25 @@ find_optimal_sampling_locs <- function(taxon, year, cfg = config,
   .progress_msg(progress, "verbose", "    ", nrow(undersamp_species), " undersampled species")
 
   ### Candidate cells: in range, no occurrence yet, not already well-sampled.
+  ### No undersampled species means nothing to pivot; pivot_longer() errors on an
+  ### empty column selection, so return an empty candidate table with the same columns.
   occ_filtered <- dplyr::filter(occ_data, species %in% undersamp_species$species)
-  undersamp_cells <- range_cells |>
-    dplyr::select(h3_index, dplyr::all_of(undersamp_species$species)) |>
-    tidyr::pivot_longer(-h3_index, names_to = "species", values_to = "in_range") |>
-    dplyr::left_join(
-      occ_filtered |> dplyr::select(h3_index, species) |> dplyr::mutate(has_occ = 1L),
-      by = c("h3_index", "species")
-    ) |>
-    dplyr::mutate(in_range = ifelse(!is.na(has_occ), 0, in_range)) |>
-    dplyr::select(-has_occ) |>
-    dplyr::filter(!(h3_index %in% well_sampled_cells), in_range == 1) |>
-    dplyr::rename(pres_abs = in_range)
+  if (nrow(undersamp_species) == 0) {
+    undersamp_cells <- tibble::tibble(h3_index = character(), species = character(),
+                                      pres_abs = integer())
+  } else {
+    undersamp_cells <- range_cells |>
+      dplyr::select(h3_index, dplyr::all_of(undersamp_species$species)) |>
+      tidyr::pivot_longer(-h3_index, names_to = "species", values_to = "in_range") |>
+      dplyr::left_join(
+        occ_filtered |> dplyr::select(h3_index, species) |> dplyr::mutate(has_occ = 1L),
+        by = c("h3_index", "species")
+      ) |>
+      dplyr::mutate(in_range = ifelse(!is.na(has_occ), 0, in_range)) |>
+      dplyr::select(-has_occ) |>
+      dplyr::filter(!(h3_index %in% well_sampled_cells), in_range == 1) |>
+      dplyr::rename(pres_abs = in_range)
+  }
 
   if (isTRUE(write)) {
     ensure_parent_dir(samp_cfg$undersamp_cells_out)

@@ -39,21 +39,20 @@ source(here("R", "04_indicators", "03_find_optimal_sampling_locs_run.R"))
 source(here("R", "04_indicators", "04_greedy_setcover_run.R"))
 
 ## --- Sample-mode overrides ----------------------------------------------------
-## Repoint config + taxa_config at data/sample and narrow to the offline taxa.
+## Replace config, taxa_config and sampling config with the sample versions in
+## config/sample/. Each file is sourced into a scratch env, then copied over the
+## real objects, so the real config stays untouched on disk.
 apply_sample_config <- function() {
-  s <- function(...) here("data", "sample", ...)
-  config$taxa                    <<- c("reptile", "mammal")
-  config$years                   <<- c(2014, 2024)
-  config$focal_year              <<- 2024
-  config$region$boundary_source  <<- s("spatial_layers", "region.gpkg")
-  config$conservation_areas$path <<- s("spatial_layers", "conservation_areas.gpkg")
-  config$species_list_default    <<- s("species_list.csv")
-  for (t in c("reptile", "mammal")) {
-    taxa_config[[t]]$species_source$csv_path <<- s("species_list.csv")
-    taxa_config[[t]]$polygon_dir             <<- s("ranges", t)
-    taxa_config[[t]]$gbif_dataset_path       <<- s("gbif", t, "occurrence.parquet")
+  sample_env <- new.env()
+  for (f in c("config.R", "taxa_config.R", "sampling_config.R")) {
+    sys.source(here("config", "sample", f), envir = sample_env)
   }
-  message("Sample mode: taxa = reptile, mammal; inputs from data/sample/.")
+  for (obj in c("config", "taxa_config", "sampling_params", "make_sampling_config",
+                "taxon_output_dir", "taxon_processed_dir", "taxon_year_occ_dir")) {
+    assign(obj, get(obj, envir = sample_env), envir = globalenv())
+  }
+  message("Sample mode: taxa = ", paste(config$taxa, collapse = ", "),
+          "; configs from config/sample/.")
 }
 
 ### --- Orchestration ------------------------------------------------------------
@@ -61,26 +60,26 @@ run_pipeline <- function(sample = FALSE, do_acquire = !sample) {
   if (isTRUE(sample)) apply_sample_config()
 
   message("== Stage 0: taxonomy ==")
-  if (isTRUE(sample)) {
-    ### Name resolution calls the GBIF/eBird APIs, so the sample ships a
-    ### pre-built crosswalk; copy it into place instead of rebuilding.
-    ensure_parent_dir(config$paths$crosswalk)
-    file.copy(here("data", "sample", "species_crosswalk.csv"),
-              config$paths$crosswalk, overwrite = TRUE)
-    message("Sample mode: using committed data/sample/species_crosswalk.csv")
-  } else {
+  # if (isTRUE(sample)) {
+  #   ### Name resolution calls the GBIF/eBird APIs, so the sample ships a
+  #   ### pre-built crosswalk; copy it into place instead of rebuilding.
+  #   ensure_parent_dir(config$paths$crosswalk)
+  #   file.copy(here("data", "sample", "species_crosswalk.csv"),
+  #             config$paths$crosswalk, overwrite = TRUE)
+  #   message("Sample mode: using committed data/sample/species_crosswalk.csv")
+  # } else {
     build_species_crosswalk()
-  }
+  # }
 
   if (isTRUE(do_acquire)) {
     message("== Stage 1: acquire (API-gated) ==")
-    system.time({
-      run_gbif_downloads(max_age_days = config$gbif_max_age_days)
-    })
+    system.time({run_gbif_downloads(force = config$force)})
+      ### slow, but hopefully should run just as fast across all taxa
+      ### as it does with just two taxa (single-shot query)
     system.time({
       ### Only taxa with an obis_dataset_path in taxa_config are fetched from OBIS.
       ### use_aws = TRUE attempts AWS S3 GeoParquet first (fast); falls back to API.
-      run_obis_downloads(use_aws = config$obis_use_aws)
+      run_obis_downloads(force = config$force)
     })
     ### get_ebird_status / run_redlist_status are opt-in; call directly if needed.
     ### NOTE: for IUCN downloads with meta, all the redlist status is in there already!
@@ -114,8 +113,8 @@ run_pipeline <- function(sample = FALSE, do_acquire = !sample) {
     ### 21 sec abalones and mammals
 
   system.time({run_greedy_setcover()})
-    ### reasonable for abalones; still running for mammals
+    ### reasonable for abalones; but 30 mintes overall for ab+mamm
 
   message("== Pipeline complete. Outputs in output/ ==")
-  invisible(TRUE)
+  return(invisible(TRUE))
 }

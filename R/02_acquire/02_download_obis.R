@@ -316,7 +316,8 @@ run_obis_downloads <- function(taxa = Filter(function(t) !is.null(taxa_cfg[[t]]$
                                cfg = config, taxa_cfg = taxa_config,
                                include_flagged = TRUE,
                                max_age_days = cfg$obis_max_age_days %||% 180,
-                               force = config$force, use_aws = TRUE) {
+                               force = config$force, 
+                               use_aws = config$obis_use_aws) {
   if (!source_enabled("obis", cfg)) {
     message("[obis] disabled (config$obis_filters$enabled = FALSE); skipping.")
     return(tibble::tibble())
