@@ -22,6 +22,7 @@ suppressPackageStartupMessages({
   library(readr)
   library(glue)
   library(here)
+  library(collapse)
 })
 
 ### Resolve the taxa a run covers ("combined" spans all configured taxa).
@@ -94,8 +95,13 @@ greedy_setcover <- function(year, taxon, cfg = config, params = sampling_params,
   updated_ranges <- rbindlist(lapply(taxa, function(t) {
     dt <- as.data.table(read_parquet(samp[[t]]$undersamp_cells_out)); dt[, taxon := t]; dt
   }))
+  ### Pin column types: an empty CSV reads back as character, which breaks the arithmetic below.
   undersamp_species <- rbindlist(lapply(taxa, function(t) {
-    df <- read_csv(samp[[t]]$undersamp_spp_out, show_col_types = FALSE); df$taxon <- t; df
+    df <- read_csv(samp[[t]]$undersamp_spp_out, show_col_types = FALSE,
+                   col_types = cols(species = col_character(), n = col_integer(),
+                                    cells = col_double(), frac_sampled = col_double(),
+                                    cells_needed = col_double()))
+    df$taxon <- t; df
   }), fill = TRUE)
   range_cells_long <- rbindlist(lapply(taxa, function(t) {
     rc <- as.data.table(read_parquet(samp[[t]]$range_cells_path))
@@ -131,13 +137,13 @@ greedy_setcover <- function(year, taxon, cfg = config, params = sampling_params,
   selected <- vector("list", 5000L)
   n_batches <- 0L; n_selected <- 0L
   total_cons_selected <- 0L; total_noncons_selected <- 0L
-  setkey(edges, species)
-  edges <- edges[species %in% remaining$species]
+  setkey(edges, species, h3_index)
 
   while (nrow(remaining[cells_needed > 0]) > 0) {
     active_spp <- remaining[cells_needed > 0, species]
-    edges <- edges[species %in% active_spp]
-    cell_scores <- edges[, .(n_spp = .N, cons_area = cons_area[1]), by = h3_index]
+    ### Filter to active species (collapse::fsubset is markedly faster than data.table %in%).
+    active_edges <- fsubset(edges, species %in% active_spp)
+    cell_scores <- active_edges[, .(n_spp = .N, cons_area = cons_area[1]), by = h3_index]
     if (nrow(cell_scores) == 0) break
 
     median_target <- median(remaining[cells_needed > 0, cons_frac_range])
@@ -155,7 +161,8 @@ greedy_setcover <- function(year, taxon, cfg = config, params = sampling_params,
     batch <- cell_scores[1:batch_size]
     batch_cells <- batch$h3_index
 
-    batch_edges <- edges[h3_index %in% batch_cells]
+    ### Edges of the batch cells, restricted to species still short (matches prior behavior).
+    batch_edges <- fsubset(active_edges, h3_index %in% batch_cells)
     spp_hits <- batch_edges[, .(hits = .N), by = species]
     remaining[spp_hits, cells_needed := cells_needed - i.hits, on = "species"]
 
@@ -174,12 +181,18 @@ greedy_setcover <- function(year, taxon, cfg = config, params = sampling_params,
     .progress_msg(progress, "verbose", glue("    batch {n_batches}: {n_selected} cells selected, ",
                   "{nrow(remaining[cells_needed > 0])} species still short"))
 
-    edges <- edges[!h3_index %in% batch_cells]
+    ### Remove satisfied species edges for next iteration (prune the edge table).
     satisfied <- remaining[cells_needed <= 0, species]
-    if (length(satisfied) > 0) edges <- edges[!species %in% satisfied]
+    if (length(satisfied) > 0) edges <- fsubset(edges, !species %in% satisfied)
   }
 
-  selected_cells <- rbindlist(selected[seq_len(n_batches)])
+  selected_cells <- if (n_batches == 0L) {
+    ### No batches (nothing undersampled): keep the same columns as a real selection.
+    data.table(order = integer(), h3_index = character(), cons_area = integer(),
+               n_spp_covered = integer(), batch_id = integer(), spp_remaining = integer())
+  } else {
+    rbindlist(selected[seq_len(n_batches)])
+  }
   species_summary <- merge(spp_dt, remaining[, .(species, final_deficit = cells_needed)],
                            by = "species")
   species_summary[, cells_selected := cells_needed - final_deficit]
