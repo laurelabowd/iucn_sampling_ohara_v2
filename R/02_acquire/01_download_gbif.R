@@ -291,7 +291,7 @@ finalize_gbif_job <- function(job) {
 ### callers that want a single taxon; all logic lives in run_gbif_downloads().
 download_one_taxon <- function(taxon, cfg = config, taxa_cfg = taxa_config,
                                wait = TRUE, include_flagged = TRUE,
-                               max_age_days = Inf, force = FALSE) {
+                               max_age_days = Inf, force = config$force) {
   run_gbif_downloads(taxa = taxon, cfg = cfg, taxa_cfg = taxa_cfg, wait = wait,
                      include_flagged = include_flagged, max_age_days = max_age_days,
                      force = force)
@@ -309,7 +309,7 @@ run_gbif_downloads <- function(taxa = config$taxa, cfg = config,
                                taxa_cfg = taxa_config, wait = TRUE,
                                include_flagged = TRUE,
                                max_age_days = cfg$gbif_max_age_days %||% 180,
-                               force = FALSE,
+                               force = config$force,
                                max_concurrent = cfg$gbif_max_concurrent %||% 3,
                                poll_secs = cfg$gbif_poll_secs %||% 30,
                                max_wait_mins = cfg$gbif_max_wait_mins %||% 360,

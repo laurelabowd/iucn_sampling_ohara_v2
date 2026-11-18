@@ -48,7 +48,7 @@ redlist_manifest_path <- function(cfg) {
   file.path(cfg$paths$data_processed, "iucn_redlist_status_manifest.json")
 }
 
-run_redlist_status <- function(taxa = config$taxa, cfg = config, force = FALSE,
+run_redlist_status <- function(taxa = config$taxa, cfg = config, force = config$force,
                                pause = 2) {
   key <- cfg$credentials$iucn_redlist_key
   if (is.null(key) || !nzchar(key)) {

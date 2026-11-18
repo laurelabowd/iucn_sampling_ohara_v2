@@ -188,7 +188,7 @@ clean_settings_hash <- function(cfg = config) {
 
 ### Clean one taxon-year: every parsed occ file in that folder, skipping files whose
 ### input md5 and settings match the manifest and whose output still exists.
-clean_taxon_year <- function(taxon, year, cfg = config, force = FALSE,
+clean_taxon_year <- function(taxon, year, cfg = config, force = config$force,
                              progress = c("quiet", "terse", "verbose")) {
   progress <- match.arg(progress)
   in_dir <- taxon_year_occ_dir(taxon, year, cfg)
@@ -234,7 +234,7 @@ clean_taxon_year <- function(taxon, year, cfg = config, force = FALSE,
 }
 
 run_clean_occurrence <- function(taxa = config$taxa, years = config$years, cfg = config,
-                                 force = FALSE,
+                                 force = config$force,
                                  progress = c("terse", "verbose", "quiet")) {
   progress <- match.arg(progress)
   grid <- tidyr::expand_grid(taxon = taxa, year = years)

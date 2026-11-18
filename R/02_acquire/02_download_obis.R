@@ -229,7 +229,7 @@ fetch_obis_batch <- function(names_batch, year_range, wkt = NULL, page_size = 10
 ### use_aws = TRUE tries S3 GeoParquet first; falls back to API on failure.
 download_one_taxon_obis <- function(taxon, cfg = config, taxa_cfg = taxa_config,
                                     include_flagged = TRUE, max_age_days = Inf,
-                                    force = FALSE, use_aws = TRUE, batch_size = 100) {
+                                    force = config$force, use_aws = TRUE, batch_size = 100) {
   tcfg <- taxa_cfg[[taxon]]
   if (is.null(tcfg)) stop(glue("Taxon '{taxon}' not in taxa_config."))
   if (is.null(tcfg$obis_dataset_path)) {
@@ -316,7 +316,7 @@ run_obis_downloads <- function(taxa = Filter(function(t) !is.null(taxa_cfg[[t]]$
                                cfg = config, taxa_cfg = taxa_config,
                                include_flagged = TRUE,
                                max_age_days = cfg$obis_max_age_days %||% 180,
-                               force = FALSE, use_aws = TRUE) {
+                               force = config$force, use_aws = TRUE) {
   if (!source_enabled("obis", cfg)) {
     message("[obis] disabled (config$obis_filters$enabled = FALSE); skipping.")
     return(tibble::tibble())

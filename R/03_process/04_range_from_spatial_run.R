@@ -100,7 +100,7 @@ range_stale_reason <- function(taxon, cfg = config, taxa_cfg = taxa_config) {
 }
 
 run_build_ranges <- function(taxa = config$taxa, cfg = config, taxa_cfg = taxa_config,
-                             force = FALSE,
+                             force = config$force,
                              progress = c("terse", "verbose", "quiet")) {
   progress <- match.arg(progress)
 

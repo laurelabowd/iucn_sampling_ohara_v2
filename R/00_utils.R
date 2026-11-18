@@ -18,6 +18,21 @@ suppressPackageStartupMessages({
   invisible()
 }
 
+### Stage-level cache check. TRUE when `force` is off, the manifest at `mpath`
+### records the same `settings` hash, and every file in `outputs` still exists.
+.stage_cached <- function(mpath, settings, outputs, force = FALSE) {
+  if (isTRUE(force) || !file.exists(mpath)) return(FALSE)
+  old <- tryCatch(jsonlite::read_json(mpath, simplifyVector = TRUE), error = function(e) NULL)
+  !is.null(old) && identical(old$settings, settings) && all(file.exists(outputs))
+}
+
+### Write the manifest LAST, so an interrupted run is never treated as cached.
+.write_stage_manifest <- function(mpath, settings, ...) {
+  ensure_parent_dir(mpath)
+  jsonlite::write_json(list(settings = settings, ...), mpath,
+                       auto_unbox = TRUE, pretty = TRUE, na = "null")
+}
+
 ### TRUE if a taxon's range_source denotes polygon (vector) range data.
 ### "polygon" is canonical; "shapefile" and "vector" are accepted aliases.
 is_polygon_source <- function(range_source) {

@@ -148,7 +148,7 @@ hex_grid_stale_reason <- function(cfg = config) {
 
 ### Build (or reuse) the region hex grid and conservation-area cells.
 ### force = TRUE always rebuilds.
-build_hex_grid <- function(cfg = config, force = FALSE) {
+build_hex_grid <- function(cfg = config, force = config$force) {
   if (!isTRUE(force)) {
     reason <- hex_grid_stale_reason(cfg)
     if (is.null(reason)) {

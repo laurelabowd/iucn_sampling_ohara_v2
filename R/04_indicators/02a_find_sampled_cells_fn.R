@@ -57,10 +57,38 @@ find_sampled_cells_one <- function(file_path, year, cons_ids, well_samp_cells, c
 }
 
 ### Full workflow for one taxon-year.
+### Cached on (clean parquets, range cells, conservation hexes, richness gpkg,
+### threshold, code); a cached run re-reads the CSV. `force = TRUE` recomputes.
+### `progress`: "quiet" | "terse" | "verbose".
 run_find_sampled_cells <- function(taxon, year, cfg = config,
-                                   params = sampling_params, write_output = TRUE) {
+                                   params = sampling_params, write_output = TRUE,
+                                   force = config$force,
+                                   progress = c("quiet", "terse", "verbose")) {
+  progress <- match.arg(progress)
   samp_cfg <- make_sampling_config(year, cfg = cfg)[[taxon]]
+  out <- file.path(samp_cfg$output_dir, glue::glue("sampled_cells_{taxon}_{year}.csv"))
 
+  occ_dir <- taxon_year_occ_dir(taxon, year, cfg)
+  files <- list.files(occ_dir, pattern = "_clean\\.parquet$", full.names = TRUE)
+
+  mpath <- file.path(taxon_output_dir(taxon, cfg), "logs",
+                     glue::glue("sampled_cells_manifest_{taxon}_{year}.json"))
+  fns <- c("find_sampled_cells_one", "run_find_sampled_cells")
+  settings <- rlang::hash(list(
+    clean  = unname(tools::md5sum(files)),
+    others = unname(tools::md5sum(c(samp_cfg$range_cells_path, cons_areas_hex_path(cfg),
+                                    samp_cfg$hex_richness_path))),
+    well_sampled_threshold = params$well_sampled_threshold,
+    code   = lapply(fns, function(f) deparse(get(f, envir = globalenv())))
+  ))
+  if (isTRUE(write_output) && .stage_cached(mpath, settings, out, force)) {
+    .progress_msg(progress, "terse",
+                  glue::glue("[sampled cells] {taxon} {year}: CACHED (inputs unchanged; force = TRUE to rebuild)"))
+    return(readr::read_csv(out, show_col_types = FALSE))
+  }
+
+  .progress_msg(progress, "terse",
+                glue::glue("[sampled cells] {taxon} {year} ({length(files)} species files)"))
   cell_list <- arrow::read_parquet(samp_cfg$range_cells_path)
   cons_ids  <- sf::st_read(cons_areas_hex_path(cfg), quiet = TRUE)$h3_index
 
@@ -68,18 +96,18 @@ run_find_sampled_cells <- function(taxon, year, cfg = config,
   well_samp_cells <- richness |>
     dplyr::filter(n_records >= params$well_sampled_threshold) |>
     dplyr::pull(h3_index)
-
-  occ_dir <- taxon_year_occ_dir(taxon, year, cfg)
-  files <- list.files(occ_dir, pattern = "_clean\\.parquet$", full.names = TRUE)
+  .progress_msg(progress, "verbose", "    ", length(well_samp_cells), " well-sampled cells")
 
   results <- purrr::map_dfr(files, find_sampled_cells_one,
                             year = year, cons_ids = cons_ids,
                             well_samp_cells = well_samp_cells, cell_list = cell_list)
+  .progress_msg(progress, "verbose", "    summarised ", nrow(results), " species")
 
   if (isTRUE(write_output)) {
-    out <- file.path(samp_cfg$output_dir, glue::glue("sampled_cells_{taxon}_{year}.csv"))
     ensure_parent_dir(out)
     readr::write_csv(results, out)
+    .write_stage_manifest(mpath, settings, taxon = taxon, year = year)
+    .progress_msg(progress, "verbose", "    wrote ", out)
   }
   results
 }

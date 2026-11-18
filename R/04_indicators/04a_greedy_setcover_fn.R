@@ -50,7 +50,14 @@ build_greedy_output_dir <- function(year, taxon, cfg = config, taxa_resolved = N
   dplyr::mutate(grid, cons_area = as.integer(h3_index %in% cons_ids))
 }
 
-greedy_setcover <- function(year, taxon, cfg = config, params = sampling_params) {
+### Cached on (undersamp outputs + range cells of every taxon, hex grid, conservation
+### hexes, the three tuning knobs, code); manifest lives in the output dir.
+### A cached run returns list(status = "cached", output_dir). `force = TRUE` recomputes.
+### `progress`: "quiet" | "terse" | "verbose".
+greedy_setcover <- function(year, taxon, cfg = config, params = sampling_params,
+                            force = config$force,
+                            progress = c("quiet", "terse", "verbose")) {
+  progress <- match.arg(progress)
   year <- as.character(year)
   taxa <- resolve_greedy_taxa(taxon, cfg)
   samp <- make_sampling_config(year, cfg = cfg)
@@ -60,6 +67,28 @@ greedy_setcover <- function(year, taxon, cfg = config, params = sampling_params)
   deficit_percentile  <- params$deficit_percentile
 
   output_dir <- build_greedy_output_dir(year, taxon, cfg, taxa)
+
+  mpath <- file.path(output_dir, "greedy_manifest.json")
+  fns <- c("greedy_setcover", ".hex_grid_with_cons", "resolve_greedy_taxa")
+  settings <- rlang::hash(list(
+    inputs = unname(tools::md5sum(c(
+      unlist(lapply(taxa, function(t) c(samp[[t]]$undersamp_cells_out, samp[[t]]$undersamp_spp_out,
+                                        samp[[t]]$range_cells_path))),
+      hex_grid_path(cfg), cons_areas_hex_path(cfg)))),
+    taxa = taxa,
+    cons_balance_weight = cons_balance_weight,
+    batch_fraction = batch_fraction,
+    deficit_percentile = deficit_percentile,
+    code = lapply(fns, function(f) deparse(get(f, envir = globalenv())))
+  ))
+  outs <- file.path(output_dir, c("greedy_selected_cells.csv", "greedy_species_summary.csv",
+                                  "greedy_selected_cells.gpkg"))
+  if (.stage_cached(mpath, settings, outs, force)) {
+    .progress_msg(progress, "terse",
+                  glue("[greedy {taxon} {year}] CACHED (inputs unchanged; force = TRUE to rebuild)"))
+    return(list(status = "cached", output_dir = output_dir))
+  }
+  .progress_msg(progress, "terse", glue("[greedy {taxon} {year}] running ({toString(taxa)})"))
 
   ### Stack candidate cells, species deficits, and range cells across taxa.
   updated_ranges <- rbindlist(lapply(taxa, function(t) {
@@ -142,6 +171,8 @@ greedy_setcover <- function(year, taxon, cfg = config, params = sampling_params)
       spp_remaining = nrow(remaining[cells_needed > 0])
     )
     n_selected <- n_selected + batch_size
+    .progress_msg(progress, "verbose", glue("    batch {n_batches}: {n_selected} cells selected, ",
+                  "{nrow(remaining[cells_needed > 0])} species still short"))
 
     edges <- edges[!h3_index %in% batch_cells]
     satisfied <- remaining[cells_needed <= 0, species]
@@ -164,9 +195,11 @@ greedy_setcover <- function(year, taxon, cfg = config, params = sampling_params)
   sf::st_write(selected_sf, file.path(output_dir, "greedy_selected_cells.gpkg"),
                delete_dsn = TRUE, quiet = TRUE)
 
-  message(glue("[greedy {taxon} {year}] {n_selected} cells, ",
-               "{sum(species_summary$target_met)}/{nrow(species_summary)} species at target ",
-               "-> {output_dir}"))
-  list(selected_cells = selected_cells, species_summary = species_summary,
+  .write_stage_manifest(mpath, settings, taxon = taxon, year = year)
+  .progress_msg(progress, "terse",
+                glue("[greedy {taxon} {year}] {n_selected} cells, ",
+                     "{sum(species_summary$target_met)}/{nrow(species_summary)} species at target ",
+                     "-> {output_dir}"))
+  list(status = "written", selected_cells = selected_cells, species_summary = species_summary,
        taxon_summary = taxon_summary, output_dir = output_dir)
 }

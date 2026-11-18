@@ -61,53 +61,60 @@ source(here("R", "04_indicators", "04_greedy_setcover_run.R"))
 #   if (isTRUE(sample)) apply_sample_config()
 
   message("== Stage 0: taxonomy ==")
-  if (isTRUE(sample)) {
-    ### Name resolution calls the GBIF/eBird APIs, so the sample ships a
-    ### pre-built crosswalk; copy it into place instead of rebuilding.
-    ensure_parent_dir(config$paths$crosswalk)
-    file.copy(here("data", "sample", "species_crosswalk.csv"),
-              config$paths$crosswalk, overwrite = TRUE)
-    message("Sample mode: using committed data/sample/species_crosswalk.csv")
-  } else {
-    build_species_crosswalk(force = config$force)
-  }
+  # if (isTRUE(sample)) {
+  #   ### Name resolution calls the GBIF/eBird APIs, so the sample ships a
+  #   ### pre-built crosswalk; copy it into place instead of rebuilding.
+  #   ensure_parent_dir(config$paths$crosswalk)
+  #   file.copy(here("data", "sample", "species_crosswalk.csv"),
+  #             config$paths$crosswalk, overwrite = TRUE)
+  #   message("Sample mode: using committed data/sample/species_crosswalk.csv")
+  # } else {
+    build_species_crosswalk()
+  # }
 
-  # 
-  if (isTRUE(do_acquire)) {
+  # if (isTRUE(do_acquire)) {
     message("== Stage 1: acquire (API-gated) ==")
     system.time({
-      run_gbif_downloads(max_age_days = config$gbif_max_age_days, force = FALSE)
+      run_gbif_downloads(max_age_days = config$gbif_max_age_days)
     })
     system.time({
       ### Only taxa with an obis_dataset_path in taxa_config are fetched from OBIS.
       ### use_aws = TRUE attempts AWS S3 GeoParquet first (fast); falls back to API.
-      run_obis_downloads(force = FALSE, use_aws = config$obis_use_aws)
+      run_obis_downloads(use_aws = config$obis_use_aws)
     })
     ### get_ebird_status / run_redlist_status are opt-in; call directly if needed.
     ### NOTE: for IUCN downloads with meta, all the redlist status is in there already!
-  } else {
-    message("== Stage 1: acquire skipped (using provided inputs) ==")
-  }
-  # }) ### 40 minutes for mammals and abalone! let's see if we can improve that
+  # } else {
+  #   message("== Stage 1: acquire skipped (using provided inputs) ==")
+  # }
   
   message("== Stage 2: process ==")
-  system.time({build_hex_grid(force = TRUE)}) 
-    ### 5 min level 4 - h3o doesn't speed up the conservation polygon step, which is the slow one
+  system.time({build_hex_grid()}) 
+    ### 5 min level 4 - h3o doesn't speed up the conservation polygon intersect step, which is the slow one
+    ### * is it line 209: hits <- s2::s2_intersects_matrix(hex_s2, cons_s2)
+    ### * maybe can filter out tiny polygons to speed things up?
+    ### * but in the grand scheme, this should only need to be run once, so low priority
 
-  run_occurrence_parse(force = FALSE) ### 45 s for mammals/abalone
+  run_occurrence_parse() ### 45 s for mammals/abalone
 
-  run_clean_occurrence(force = FALSE) ### 5 min for mammals/abalne
+  run_clean_occurrence() ### 5 min for mammals/abalne
 
-  system.time({run_build_ranges(force = TRUE, progress = 'verbose')})
-    ### abalone pretty quick; less than a minute. Some spp ranges ~5 million km2
-    ### some mammals very slow: 
-    ###   * ursus maritimus 22M km2 started 7:48 pm (circumpolar - vertical slice issue?)
-  run_richness_in_grid()
+  system.time({run_build_ranges()})
+    ### using h3o instead of h3jsr: abalone quick; a few seconds
+    ### Mammals (more spp, larger ranges): 5 minutes, way better than before
+
+  system.time({run_richness_in_grid()})
+    ### 1 minute for abalones and mammals together when not cached
 
   message("== Stage 3: indicators ==")
-  run_all_find_sampled_cells()
-  run_find_optimal_sampling_locs()
-  run_greedy_setcover()
+  system.time({run_all_find_sampled_cells()})
+    ### 70 sec abalones and mammals
+
+  system.time({run_find_optimal_sampling_locs()})
+    ### 21 sec abalones and mammals
+
+  system.time({run_greedy_setcover()})
+    ### reasonable for abalones; still running for mammals
 
   message("== Pipeline complete. Outputs in output/ ==")
   invisible(TRUE)

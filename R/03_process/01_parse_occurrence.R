@@ -223,7 +223,7 @@ remove_orphaned_occurrences <- function(base_dir, results) {
 
 ### Parse one taxon across all configured years. Skips when the cache is current
 ### (see parse_stale_reason) unless `force = TRUE`.
-parse_one_taxon <- function(taxon, cfg = config, taxa_cfg = taxa_config, force = FALSE) {
+parse_one_taxon <- function(taxon, cfg = config, taxa_cfg = taxa_config, force = config$force) {
   tcfg <- taxa_cfg[[taxon]]
   dataset_path <- tcfg$gbif_dataset_path
 
@@ -328,7 +328,7 @@ parse_one_taxon <- function(taxon, cfg = config, taxa_cfg = taxa_config, force =
 }
 
 run_occurrence_parse <- function(taxa = config$taxa, cfg = config, taxa_cfg = taxa_config,
-                                 force = FALSE) {
+                                 force = config$force) {
   purrr::map_dfr(taxa, function(taxon) {
     parse_one_taxon(taxon, cfg, taxa_cfg, force = force) |> dplyr::mutate(taxon = taxon, .before = 1)
   })

@@ -166,7 +166,7 @@ attach_polygon_link <- function(crosswalk, polygon_names) {
 }
 
 ### Build one taxon's crosswalk (names resolved + polygon linkage where used).
-build_taxon_crosswalk <- function(taxon, tcfg, cfg = config, force = FALSE) {
+build_taxon_crosswalk <- function(taxon, tcfg, cfg = config, force = config$force) {
   raw <- load_species_list(taxon, tcfg)
 
   cw <- resolve_species_names(
@@ -207,7 +207,7 @@ build_species_crosswalk <- function(taxa = config$taxa,
                                     taxa_cfg = taxa_config,
                                     cfg = config,
                                     write = TRUE,
-                                    force = FALSE) {
+                                    force = config$force) {
   ### test to warn if config and taxa_config don't match for all taxa!
   all_missed <- c(setdiff(taxa, names(taxa_config)), setdiff(names(taxa_config), taxa))
   if(length(all_missed) != 0) {

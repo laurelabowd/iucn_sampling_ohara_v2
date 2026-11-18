@@ -63,13 +63,13 @@ Measures sampling coverage and proposes new sampling locations.
 
 | File | Role |
 |------|------|
-| [`01_calc_richness_in_grid.R`](04_indicators/01_calc_richness_in_grid.R) | Summarizes cleaned occurrences to per-hex-cell species richness and record counts, joined onto the region grid so the result carries geometry. |
+| [`01_calc_richness_in_grid.R`](04_indicators/01_calc_richness_in_grid.R) | Summarizes cleaned occurrences to per-hex-cell species richness and record counts, joined onto the region grid so the result carries geometry. Cached per taxon-year (inputs, grid and code hashed); `force = TRUE` recomputes, `progress = "terse"/"verbose"/"quiet"` controls messages. Returns a status tibble. |
 | [`02a_find_sampled_cells_fn.R`](04_indicators/02a_find_sampled_cells_fn.R) | Per species: how many range cells are sampled, how many fall inside conservation areas, and in/out-of-range observation counts. |
-| [`02_find_sampled_cells_run.R`](04_indicators/02_find_sampled_cells_run.R) | Driver: loops the sampled-cells workflow over taxa and years. |
+| [`02_find_sampled_cells_run.R`](04_indicators/02_find_sampled_cells_run.R) | Driver: loops the sampled-cells workflow over taxa and years. Cached per taxon-year (`force`, `progress` args). |
 | [`03a_find_optimal_sampling_locs_fn.R`](04_indicators/03a_find_optimal_sampling_locs_fn.R) | Identifies species sampled below `target_sampling_frac` and lists candidate hex cells where extra sampling would close the gap — the inputs to the set-cover. |
-| [`03_find_optimal_sampling_locs_run.R`](04_indicators/03_find_optimal_sampling_locs_run.R) | Driver over taxa × years. |
+| [`03_find_optimal_sampling_locs_run.R`](04_indicators/03_find_optimal_sampling_locs_run.R) | Driver over taxa × years. Cached per taxon-year (`force`, `progress` args). |
 | [`04a_greedy_setcover_fn.R`](04_indicators/04a_greedy_setcover_fn.R) | Deterministic greedy weighted set-cover: picks a minimal set of hex cells that brings every undersampled species up to its target, with a conservation-area balance adjustment. Produces the final sampling plan. |
-| [`04_greedy_setcover_run.R`](04_indicators/04_greedy_setcover_run.R) | Driver: runs the set-cover per taxon (and optionally `"combined"`) for a year. |
+| [`04_greedy_setcover_run.R`](04_indicators/04_greedy_setcover_run.R) | Driver: runs the set-cover per taxon (and optionally `"combined"`) for a year. Cached (`force`, `progress` args). |
 
 ## Running a single stage
 
