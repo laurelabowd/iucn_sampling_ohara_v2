@@ -40,25 +40,25 @@ source(here("R", "04_indicators", "04_greedy_setcover_run.R"))
 
 ### --- Sample-mode overrides ----------------------------------------------------
 ### Repoint config + taxa_config at data/sample and narrow to the offline taxa.
-apply_sample_config <- function() {
-  s <- function(...) here("data", "sample", ...)
-  config$taxa                    <<- c("reptile", "mammal")
-  config$years                   <<- c(2014, 2024)
-  config$focal_year              <<- 2024
-  config$region$boundary_source  <<- s("spatial_layers", "region.gpkg")
-  config$conservation_areas$path <<- s("spatial_layers", "conservation_areas.gpkg")
-  config$species_list_default    <<- s("species_list.csv")
-  for (t in c("reptile", "mammal")) {
-    taxa_config[[t]]$species_source$csv_path <<- s("species_list.csv")
-    taxa_config[[t]]$polygon_dir             <<- s("ranges", t)
-    taxa_config[[t]]$gbif_dataset_path       <<- s("gbif", t, "occurrence.parquet")
-  }
-  message("Sample mode: taxa = reptile, mammal; inputs from data/sample/.")
-}
+# apply_sample_config <- function() {
+#   s <- function(...) here("data", "sample", ...)
+#   config$taxa                    <<- c("reptile", "mammal")
+#   config$years                   <<- c(2014, 2024)
+#   config$focal_year              <<- 2024
+#   config$region$boundary_source  <<- s("spatial_layers", "region.gpkg")
+#   config$conservation_areas$path <<- s("spatial_layers", "conservation_areas.gpkg")
+#   config$species_list_default    <<- s("species_list.csv")
+#   for (t in c("reptile", "mammal")) {
+#     taxa_config[[t]]$species_source$csv_path <<- s("species_list.csv")
+#     taxa_config[[t]]$polygon_dir             <<- s("ranges", t)
+#     taxa_config[[t]]$gbif_dataset_path       <<- s("gbif", t, "occurrence.parquet")
+#   }
+#   message("Sample mode: taxa = reptile, mammal; inputs from data/sample/.")
+# }
 
 ### --- Orchestration ------------------------------------------------------------
-run_pipeline <- function(sample = FALSE, do_acquire = !sample) {
-  if (isTRUE(sample)) apply_sample_config()
+# run_pipeline <- function(sample = FALSE, do_acquire = !sample) {
+#   if (isTRUE(sample)) apply_sample_config()
 
   message("== Stage 0: taxonomy ==")
   if (isTRUE(sample)) {
@@ -72,12 +72,17 @@ run_pipeline <- function(sample = FALSE, do_acquire = !sample) {
     build_species_crosswalk(force = config$force)
   }
 
-  # system.time({
+  # 
   if (isTRUE(do_acquire)) {
     message("== Stage 1: acquire (API-gated) ==")
-    run_gbif_downloads(max_age_days = config$gbif_max_age_days, force = config$force)
-    ### Only taxa with an obis_dataset_path in taxa_config are fetched from OBIS.
-    run_obis_downloads(force = config$force)
+    system.time({
+      run_gbif_downloads(max_age_days = config$gbif_max_age_days, force = FALSE)
+    })
+    system.time({
+      ### Only taxa with an obis_dataset_path in taxa_config are fetched from OBIS.
+      ### use_aws = TRUE attempts AWS S3 GeoParquet first (fast); falls back to API.
+      run_obis_downloads(force = FALSE, use_aws = config$obis_use_aws)
+    })
     ### get_ebird_status / run_redlist_status are opt-in; call directly if needed.
     ### NOTE: for IUCN downloads with meta, all the redlist status is in there already!
   } else {
@@ -86,10 +91,10 @@ run_pipeline <- function(sample = FALSE, do_acquire = !sample) {
   # }) ### 40 minutes for mammals and abalone! let's see if we can improve that
   
   message("== Stage 2: process ==")
-  build_hex_grid(force = config$force) ### 5.5 min level 4
-  run_occurrence_parse(force = config$force) ### 45 s for mammals/abalone
-  run_clean_occurrence(force = config$force) ### 5 min for mammals/abalne
-  system.time({run_build_ranges(force = config$force)})
+  build_hex_grid(force = FALSE) ### 5.5 min level 4
+  run_occurrence_parse(force = FALSE) ### 45 s for mammals/abalone
+  run_clean_occurrence(force = FALSE) ### 5 min for mammals/abalne
+  system.time({run_build_ranges(force = FALSE)})
     ### abalone pretty quick; some mammals very slow: 2 hours total
   run_richness_in_grid()
 
@@ -100,4 +105,4 @@ run_pipeline <- function(sample = FALSE, do_acquire = !sample) {
 
   message("== Pipeline complete. Outputs in output/ ==")
   invisible(TRUE)
-  }
+  # }
