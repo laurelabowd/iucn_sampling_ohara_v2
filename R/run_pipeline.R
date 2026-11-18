@@ -38,41 +38,41 @@ source(here("R", "04_indicators", "02_find_sampled_cells_run.R"))
 source(here("R", "04_indicators", "03_find_optimal_sampling_locs_run.R"))
 source(here("R", "04_indicators", "04_greedy_setcover_run.R"))
 
-### --- Sample-mode overrides ----------------------------------------------------
-### Repoint config + taxa_config at data/sample and narrow to the offline taxa.
-# apply_sample_config <- function() {
-#   s <- function(...) here("data", "sample", ...)
-#   config$taxa                    <<- c("reptile", "mammal")
-#   config$years                   <<- c(2014, 2024)
-#   config$focal_year              <<- 2024
-#   config$region$boundary_source  <<- s("spatial_layers", "region.gpkg")
-#   config$conservation_areas$path <<- s("spatial_layers", "conservation_areas.gpkg")
-#   config$species_list_default    <<- s("species_list.csv")
-#   for (t in c("reptile", "mammal")) {
-#     taxa_config[[t]]$species_source$csv_path <<- s("species_list.csv")
-#     taxa_config[[t]]$polygon_dir             <<- s("ranges", t)
-#     taxa_config[[t]]$gbif_dataset_path       <<- s("gbif", t, "occurrence.parquet")
-#   }
-#   message("Sample mode: taxa = reptile, mammal; inputs from data/sample/.")
-# }
+## --- Sample-mode overrides ----------------------------------------------------
+## Repoint config + taxa_config at data/sample and narrow to the offline taxa.
+apply_sample_config <- function() {
+  s <- function(...) here("data", "sample", ...)
+  config$taxa                    <<- c("reptile", "mammal")
+  config$years                   <<- c(2014, 2024)
+  config$focal_year              <<- 2024
+  config$region$boundary_source  <<- s("spatial_layers", "region.gpkg")
+  config$conservation_areas$path <<- s("spatial_layers", "conservation_areas.gpkg")
+  config$species_list_default    <<- s("species_list.csv")
+  for (t in c("reptile", "mammal")) {
+    taxa_config[[t]]$species_source$csv_path <<- s("species_list.csv")
+    taxa_config[[t]]$polygon_dir             <<- s("ranges", t)
+    taxa_config[[t]]$gbif_dataset_path       <<- s("gbif", t, "occurrence.parquet")
+  }
+  message("Sample mode: taxa = reptile, mammal; inputs from data/sample/.")
+}
 
 ### --- Orchestration ------------------------------------------------------------
-# run_pipeline <- function(sample = FALSE, do_acquire = !sample) {
-#   if (isTRUE(sample)) apply_sample_config()
+run_pipeline <- function(sample = FALSE, do_acquire = !sample) {
+  if (isTRUE(sample)) apply_sample_config()
 
   message("== Stage 0: taxonomy ==")
-  # if (isTRUE(sample)) {
-  #   ### Name resolution calls the GBIF/eBird APIs, so the sample ships a
-  #   ### pre-built crosswalk; copy it into place instead of rebuilding.
-  #   ensure_parent_dir(config$paths$crosswalk)
-  #   file.copy(here("data", "sample", "species_crosswalk.csv"),
-  #             config$paths$crosswalk, overwrite = TRUE)
-  #   message("Sample mode: using committed data/sample/species_crosswalk.csv")
-  # } else {
+  if (isTRUE(sample)) {
+    ### Name resolution calls the GBIF/eBird APIs, so the sample ships a
+    ### pre-built crosswalk; copy it into place instead of rebuilding.
+    ensure_parent_dir(config$paths$crosswalk)
+    file.copy(here("data", "sample", "species_crosswalk.csv"),
+              config$paths$crosswalk, overwrite = TRUE)
+    message("Sample mode: using committed data/sample/species_crosswalk.csv")
+  } else {
     build_species_crosswalk()
-  # }
+  }
 
-  # if (isTRUE(do_acquire)) {
+  if (isTRUE(do_acquire)) {
     message("== Stage 1: acquire (API-gated) ==")
     system.time({
       run_gbif_downloads(max_age_days = config$gbif_max_age_days)
@@ -84,9 +84,9 @@ source(here("R", "04_indicators", "04_greedy_setcover_run.R"))
     })
     ### get_ebird_status / run_redlist_status are opt-in; call directly if needed.
     ### NOTE: for IUCN downloads with meta, all the redlist status is in there already!
-  # } else {
-  #   message("== Stage 1: acquire skipped (using provided inputs) ==")
-  # }
+  } else {
+    message("== Stage 1: acquire skipped (using provided inputs) ==")
+  }
   
   message("== Stage 2: process ==")
   system.time({build_hex_grid()}) 
@@ -118,4 +118,4 @@ source(here("R", "04_indicators", "04_greedy_setcover_run.R"))
 
   message("== Pipeline complete. Outputs in output/ ==")
   invisible(TRUE)
-  # }
+}
