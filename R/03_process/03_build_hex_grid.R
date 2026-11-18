@@ -17,7 +17,7 @@
 suppressPackageStartupMessages({
   library(dplyr)
   library(sf)
-  library(h3jsr)
+  library(h3o)
   library(rnaturalearth)
   library(here)
 })
@@ -165,25 +165,33 @@ build_hex_grid <- function(cfg = config, force = FALSE) {
   region <- get_region_boundary(cfg)
 
   ### Region H3 grid.
-  ### polygon_to_cells() cannot fill a globe-spanning polygon (returns NA), so
+  ### Polygon filling cannot cover a globe-spanning polygon (h3jsr returned NA), so
   ### global regions are built from res-0 cells and their children instead.
   bb <- sf::st_bbox(sf::st_transform(region, 4326))
   is_global <- identical(cfg$region$boundary_source, "global") ||
     (bb[["xmin"]] <= -179.9 && bb[["xmax"]] >= 179.9 &&
        bb[["ymin"]] <= -89.9 && bb[["ymax"]] >= 89.9)
 
+  ### Uses h3o (Rust). The 122 res-0 cell ids are 8<(2*base_cell+1) as 3 hex digits>fffffffffff
+  ### (same as h3jsr::get_res0(), verified in 06_benchmark_hex_grid_h3o_vs_h3jsr.R).
+  ### "centroid" containment matches h3jsr::polygon_to_cells (cells whose centre is inside).
   ids <- if (is_global) {
-    h3jsr::get_children(h3jsr::get_res0(), res = cfg$hex_resolution, simple = TRUE)
+    sprintf("8%03xfffffffffff", 2L * (0:121) + 1L) |>
+      h3o::h3_from_strings() |>
+      h3o::get_children(resolution = cfg$hex_resolution)
   } else {
-    h3jsr::polygon_to_cells(region, res = cfg$hex_resolution, simple = TRUE)
+    h3o::sfc_to_cells(sf::st_geometry(sf::st_transform(region, 4326)),
+                      resolution = cfg$hex_resolution, containment = "centroid")
   }
-  ids <- unique(unlist(ids, use.names = FALSE))
+  ids <- ids |> h3o::flatten_h3() |> as.character() |> unique()
   if (length(ids) == 0 || anyNA(ids)) {
-    stop("polygon_to_cells() returned no valid H3 cells; the region may be too ",
+    stop("H3 cell generation returned no valid cells; the region may be too ",
          "large or not in lon/lat (EPSG:4326).", call. = FALSE)
   }
-  hex_grid <- h3jsr::cell_to_polygon(ids, simple = FALSE) |>
-    dplyr::rename(h3_index = h3_address)
+  ### st_as_sfc() on an H3 vector returns the true cell boundary (incl. the extra
+  ### vertices of cells crossing icosahedron edges), identical to h3jsr::cell_to_polygon.
+  ### Do NOT use h3o::h3_to_vertexes(): it omits those extra vertices.
+  hex_grid <- sf::st_sf(h3_index = ids, geometry = sf::st_as_sfc(h3o::h3_from_strings(ids)))
   ensure_parent_dir(hex_grid_path(cfg))
   sf::st_write(hex_grid, hex_grid_path(cfg), delete_dsn = TRUE, quiet = TRUE)
 

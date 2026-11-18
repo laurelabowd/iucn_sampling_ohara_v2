@@ -28,6 +28,10 @@ suppressPackageStartupMessages({
   library(here)
 })
 
+### Settings
+### Northern latitude cap (degrees) applied to range polygons before H3 conversion.
+h3_max_lat <- 88
+
 ### Map each range polygon -> its canonical species name via the crosswalk.
 ### One row per (species, source). Returns a tibble: polygon_path, polygon_layer, range_polygon_name,
 ### species (name_gbif). polygon_layer is NA for crosswalks built before layers
@@ -49,9 +53,12 @@ suppressPackageStartupMessages({
   cw
 }
 
-### Polygon area in km2 (NA if the geometry can't be measured).
-.area_km2 <- function(sf_obj) {
-  tryCatch(as.numeric(sum(sf::st_area(sf::st_make_valid(sf_obj)))) / 1e6,
+### Polygon area in km2 (NA if the geometry can't be measured). Display only (verbose
+### progress). Planar area in the equal-area CRS: ~1 s for 3M vertices and within 0.02% of
+### geodesic area on Delphinus/Phocoena, where s2 st_area errored on make_valid output
+### ("Loop ... crosses loop") and geodesic area with s2 off took ~150 s.
+.area_km2 <- function(sf_obj, crs = config$crs$equal_area) {
+  tryCatch(as.numeric(sum(sf::st_area(sf::st_transform(sf::st_geometry(sf_obj), crs)))) / 1e6,
            error = function(e) NA_real_)
 }
 
@@ -60,11 +67,15 @@ suppressPackageStartupMessages({
 ### sfc_to_cells() is its equivalent. containment = "centroid" reproduces h3jsr, which
 ### keeps cells whose centre falls inside the polygon. All features passed in are
 ### flattened into one cell vector, so multi-feature species become one range.
-### Conversion can still fail on polygons that span most of the globe in longitude
-### (e.g. circumpolar Southern Ocean ranges with edges on the antimeridian), so on
-### failure the polygons are cut into 60-degree longitude strips and the cells united.
+### Circumpolar polygons (e.g. Ursus maritimus) hang h3o instead of erroring: H3 treats
+### edges as great circles, so a flat edge along the top latitude spanning 360 degrees
+### of longitude collapses to a sliver around the pole. A hang never reaches a
+### tryCatch, so the polygons are first cropped to latitudes <= `max_lat` (the polar
+### cap is not needed; see logs/DECISIONS.md), and any feature wider than 180 degrees
+### of longitude goes straight to 60-degree longitude strips with the cells united.
+### Narrower features try the direct conversion, with the strips as the error fallback.
 ### Planar clipping, hence s2 is switched off.
-.polygon_cells <- function(sp_sf, res) {
+.polygon_cells <- function(sp_sf, res, max_lat = h3_max_lat) {
 
   to_cells <- function(x) {
     h3o::sfc_to_cells(sf::st_geometry(x), resolution = res, containment = "centroid") |>
@@ -72,28 +83,60 @@ suppressPackageStartupMessages({
       as.character()
   }
 
-  ### attempt to convert polygon to cells
-  direct <- tryCatch(to_cells(sp_sf), error = function(e) NULL)
-  ### if !is.null, conversion was successful - return the result!
-  if (!is.null(direct)) return(direct)
+  ### st_intersection can return stray lines/points (where a polygon only touches the
+  ### clip edge) or mixed geometry types, which h3o rejects: keep polygon parts only.
+  polys_only <- function(x) {
+    x <- suppressWarnings(sf::st_collection_extract(x, "POLYGON", warn = FALSE))
+    x <- x[!sf::st_is_empty(x)]
+    x <- sf::st_cast(x, "MULTIPOLYGON")
+    ### st_collection_extract leaves nested ALTREP wrap_list objects that h3o's Rust code
+    ### cannot take a writable pointer to ("cannot take a writable DATAPTR"); a WKB round
+    ### trip rebuilds plain lists.
+    sf::st_as_sfc(sf::st_as_binary(x), crs = 4326)
+  }
 
-  ### if not successful, could be invalid geom, or could be too
-  ### wide of polygon: convert to planar geom, make_valid, cut to strips,
-  ### then convert each strip to polygons and rejoin
   old_s2 <- suppressMessages(sf::sf_use_s2(FALSE))
   on.exit(suppressMessages(sf::sf_use_s2(old_s2)), add = TRUE)
-  geom <- sf::st_make_valid(sf::st_geometry(sp_sf))
+  geom <- sf::st_geometry(sp_sf)
   sf::st_crs(geom) <- 4326
+
+  ### crop the north polar cap (northern edge only; the south is left as is).
+  ### st_make_valid is slow on big multipolygons (~2.5 min for 3M vertices) and often
+  ### unnecessary, so it is only used if the planar crop errors on invalid geometry.
+  crop_box <- sf::st_sfc(sf::st_polygon(list(rbind(c(-180, -90), c(180, -90), c(180, max_lat),
+                                                   c(-180, max_lat), c(-180, -90)))), crs = 4326)
+  crop <- function(g) suppressMessages(suppressWarnings(sf::st_intersection(g, crop_box)))
+  geom <- tryCatch(crop(geom), error = function(e) crop(sf::st_make_valid(geom))) |>
+    polys_only()
+  if (length(geom) == 0) return(character(0))
+
+  ### Explode to single polygons: a multipolygon's bbox can span 360 degrees only because
+  ### of scattered islands, and each polygon is what h3o has to fill. Only polygons wider
+  ### than 180 degrees of longitude (circumpolar) need strips.
+  geom <- sf::st_cast(geom, "POLYGON")
+  lon_span <- vapply(geom, function(p) diff(range(p[[1]][, 1])), numeric(1))
+  narrow <- lon_span <= 180
+
+  cells <- character(0)
+  if (any(narrow)) {
+    ### narrow polygons: attempt direct conversion; on failure send everything to strips
+    direct <- tryCatch(to_cells(polys_only(geom[narrow])), error = function(e) NULL)
+    if (is.null(direct)) narrow[] <- FALSE else cells <- direct
+  }
+  if (all(narrow)) return(unique(cells))
+
+  ### wide polygons (or direct conversion failed): cut to strips and convert each
+  wide <- geom[!narrow]
   strips <- lapply(seq(-180, 120, by = 60), function(x0) {
     sf::st_sfc(sf::st_polygon(list(rbind(c(x0, -90), c(x0 + 60, -90), c(x0 + 60, 90),
                                          c(x0, 90), c(x0, -90)))), crs = 4326)
   })
-  unique(unlist(lapply(strips, function(s) {
-    piece <- suppressMessages(suppressWarnings(sf::st_intersection(geom, s)))
-    piece <- piece[!sf::st_is_empty(piece)]
+  unique(c(cells, unlist(lapply(strips, function(s) {
+    piece <- suppressMessages(suppressWarnings(sf::st_intersection(wide, s))) |>
+      polys_only()
     if (length(piece) == 0) return(NULL)
     to_cells(sf::st_sf(geometry = piece))
-  })))
+  }))))
 }
 
 ### Read one polygon layer once and return H3 cells for each requested species.

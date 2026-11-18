@@ -14,3 +14,9 @@
 **Edited:** `R/03_process/04a_range_from_polygons_fn.R` now uses `h3o::sfc_to_cells()`; function names unchanged, so `04_range_from_spatial_run.R` needed no edit.
 **Edited:** `R/03_process/05_benchmark_h3o_vs_h3jsr.R` (h3o call fixed to `sfc_to_cells`), `R/03_process/README_h3o_benchmark.md` (rewritten with results).
 **Note:** range manifests hash the range code, so all polygon taxa will rebuild on the next run.
+
+## 2026-11-18 PST — Switch build_hex_grid to h3o; add hex-grid benchmark
+
+**Edited:** `R/03_process/03_build_hex_grid.R` — h3jsr calls (`get_children`/`get_res0`, `polygon_to_cells`, `cell_to_polygon`) replaced with h3o (`get_children`, `sfc_to_cells`, `sf::st_as_sfc()` on H3 vectors).
+**Added:** `R/03_process/06_benchmark_hex_grid_h3o_vs_h3jsr.R` → `logs/benchmark_hex_grid_h3o_vs_h3jsr.csv`.
+**Note:** the hex-grid manifest hashes inputs, not code, so existing grid layers stay cached; use `build_hex_grid(force = TRUE)` to regenerate with h3o (not yet done).

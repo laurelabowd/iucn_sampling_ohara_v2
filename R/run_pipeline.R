@@ -91,11 +91,17 @@ source(here("R", "04_indicators", "04_greedy_setcover_run.R"))
   # }) ### 40 minutes for mammals and abalone! let's see if we can improve that
   
   message("== Stage 2: process ==")
-  build_hex_grid(force = FALSE) ### 5.5 min level 4
+  system.time({build_hex_grid(force = TRUE)}) 
+    ### 5 min level 4 - h3o doesn't speed up the conservation polygon step, which is the slow one
+
   run_occurrence_parse(force = FALSE) ### 45 s for mammals/abalone
+
   run_clean_occurrence(force = FALSE) ### 5 min for mammals/abalne
-  system.time({run_build_ranges(force = FALSE)})
-    ### abalone pretty quick; some mammals very slow: 2 hours total
+
+  system.time({run_build_ranges(force = TRUE, progress = 'verbose')})
+    ### abalone pretty quick; less than a minute. Some spp ranges ~5 million km2
+    ### some mammals very slow: 
+    ###   * ursus maritimus 22M km2 started 7:48 pm (circumpolar - vertical slice issue?)
   run_richness_in_grid()
 
   message("== Stage 3: indicators ==")

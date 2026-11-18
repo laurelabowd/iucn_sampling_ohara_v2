@@ -70,3 +70,20 @@ them (h3o output should be cell-identical to the old output).
 - Many-to-many join in the benchmark script (see above).
 - h3o is a compiled package (needs Rust at install time); `renv.lock` should be updated
   with `renv::snapshot()` so the environment can be rebuilt.
+
+## Hex grid (`03_build_hex_grid.R`) - added 2026-11-18
+
+`build_hex_grid()` also uses h3o now. Benchmark: `06_benchmark_hex_grid_h3o_vs_h3jsr.R`
+(level 3 global grid, 41,162 cells, 3 runs; ids + polygons only, not the s2 intersection).
+
+| | h3jsr | h3o |
+|---|---|---|
+| Mean time | 4.93 s | 0.29 s |
+| Speedup | | 17x |
+| Cell ids identical | | yes |
+| Polygons identical | | 41,162 / 41,162 |
+
+- Polygons come from `sf::st_as_sfc(<H3 vector>)`. Do not use `h3o::h3_to_vertexes()`: it omits
+  the extra boundary vertices of cells that cross icosahedron edges (2,082 cells differed at level 3).
+- Existing grid layers are still cached (manifest hashes inputs, not code). Rebuild with
+  `build_hex_grid(force = TRUE)` to regenerate with h3o.
