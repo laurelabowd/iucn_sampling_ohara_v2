@@ -23,7 +23,7 @@ suppressPackageStartupMessages({
   library(purrr)
   library(glue)
   library(sf)
-  library(h3jsr)
+  library(h3o)
   library(arrow)
   library(here)
 })
@@ -55,14 +55,25 @@ suppressPackageStartupMessages({
            error = function(e) NA_real_)
 }
 
-### H3 cells for a polygon set. polygon_to_cells() fails (code 1) on polygons that
-### span most of the globe in longitude (e.g. circumpolar Southern Ocean ranges with
-### edges on the antimeridian), so on failure the polygons are cut into 60-degree
-### longitude strips and the cells united. Planar clipping, hence s2 is switched off.
+### H3 cells for a polygon set, using h3o (Rust; ~15x faster than h3jsr on abalones,
+### identical cells - see logs/DECISIONS.md 2026-11-18). h3o has no polygon_to_cells();
+### sfc_to_cells() is its equivalent. containment = "centroid" reproduces h3jsr, which
+### keeps cells whose centre falls inside the polygon. All features passed in are
+### flattened into one cell vector, so multi-feature species become one range.
+### Conversion can still fail on polygons that span most of the globe in longitude
+### (e.g. circumpolar Southern Ocean ranges with edges on the antimeridian), so on
+### failure the polygons are cut into 60-degree longitude strips and the cells united.
+### Planar clipping, hence s2 is switched off.
 .polygon_cells <- function(sp_sf, res) {
 
+  to_cells <- function(x) {
+    h3o::sfc_to_cells(sf::st_geometry(x), resolution = res, containment = "centroid") |>
+      h3o::flatten_h3() |>
+      as.character()
+  }
+
   ### attempt to convert polygon to cells
-  direct <- tryCatch(h3jsr::polygon_to_cells(sp_sf, res = res), error = function(e) NULL)
+  direct <- tryCatch(to_cells(sp_sf), error = function(e) NULL)
   ### if !is.null, conversion was successful - return the result!
   if (!is.null(direct)) return(direct)
 
@@ -81,7 +92,7 @@ suppressPackageStartupMessages({
     piece <- suppressMessages(suppressWarnings(sf::st_intersection(geom, s)))
     piece <- piece[!sf::st_is_empty(piece)]
     if (length(piece) == 0) return(NULL)
-    suppressMessages(h3jsr::polygon_to_cells(sf::st_sf(geometry = piece), res = res))
+    to_cells(sf::st_sf(geometry = piece))
   })))
 }
 
@@ -90,8 +101,6 @@ suppressPackageStartupMessages({
 ### `species_names` maps polygon names to canonical species: a data frame with
 ### range_polygon_name and species. Returns species, h3_index, n_features, where
 ### n_features is the number of polygon features combined for that species here.
-### h3jsr's own "this might take a while" message is replaced by a per-species
-### progress line (terse) so it is attributed to the species being processed.
 .cells_for_layer <- function(path, layer, species_names, name_field, cfg = config,
                              progress = "terse", taxon = "") {
 
@@ -129,19 +138,9 @@ suppressPackageStartupMessages({
     } else ""
     .progress_msg(progress, "verbose", glue("    {species}{detail}"))
 
-    ### Convert the polygons to H3 cells, timing it. Large ranges are slow, so the
-    ### h3jsr "might take a while" message is replaced with a species-specific one.
+    ### Convert the polygons to H3 cells, timing it
     t0 <- Sys.time() ### (only used if "verbose")
-    cells <- withCallingHandlers(
-      .polygon_cells(sp_sf, cfg$hex_resolution) |> unlist(),
-      message = function(m) {
-        if (grepl("might take a while", conditionMessage(m), fixed = TRUE)) {
-          .progress_msg(progress, "terse",
-                        glue("  [{taxon}] {species}{detail}: large range, this might take a while..."))
-          invokeRestart("muffleMessage")
-        }
-      }
-    )
+    cells <- .polygon_cells(sp_sf, cfg$hex_resolution)
     ### Drop duplicate cells (overlapping features) and make sure they are plain strings
     cells <- as.character(unique(cells))
     .progress_msg(progress, "verbose",

@@ -1,0 +1,24 @@
+================================================================================
+H3O vs H3JSR Benchmark: abalones
+Run at: 2026-11-17 17:58:21 PST
+================================================================================
+
+Settings:
+  Taxon: abalones
+  Min cells per species: 100
+  H3 resolution: 4
+  Number of runs: 1
+
+Results (1 run):
+
+  Run 1:
+    Species benchmarked: 55
+    h3jsr total: 76.2s (mean: 1.38s/spp)
+    h3o total:   5.0s (mean: 0.09s/spp)
+    Overall speedup: 15.11x
+    Median speedup per species: 11.94x (IQR: 9.94 – 14.75x)
+    Cell sets match: YES ✓
+
+Details by species: logs/benchmark_h3o_vs_h3jsr.csv
+================================================================================
+

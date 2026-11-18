@@ -1,0 +1,82 @@
+================================================================================
+H3O vs H3JSR Benchmark: Abalones
+Baseline (h3jsr only) — h3o installation pending
+================================================================================
+
+TAXON: Abalones (Haliotis spp.)
+H3 RESOLUTION: 4
+SPECIES BENCHMARKED: 55 (43 with ≥100 cells)
+TIMESTAMP: 2026-11-17 13:57:57 PST
+
+H3JSR BASELINE RESULTS
+======================================================================
+
+Total processing time:        75.3 seconds
+Average time per species:     1.37 seconds
+Minimum (H. midae):           0.034 seconds
+Maximum (H. varia):           13.0 seconds
+
+LARGEST RANGES (most time-consuming)
+======================================================================
+
+Rank  Species                 H3 Cells  Time (s)
+─────────────────────────────────────────────────
+  1   Haliotis varia             8,886   13.0
+  2   Haliotis clathrata         8,246    6.4
+  3   Haliotis asinina           8,111   11.6
+  4   Haliotis ovina             7,130    5.6
+  5   Haliotis diversicolor      4,573    6.7
+  6   Haliotis planata           4,054    2.4
+  7   Haliotis glabra            3,036    2.3
+  8   Haliotis jacnensis         2,950    0.7
+
+SMALL RANGES (< 300 cells) — 20 species
+======================================================================
+
+All processed in < 0.3 seconds each
+Range: 0.030–0.230 seconds
+Examples:
+  - H. midae (118 cells): 0.034s
+  - H. corrugata (111 cells): 0.040s
+  - H. fulgens (111 cells): 0.039s
+  - H. arabiensis (110 cells): 0.035s
+  - H. spadicea (103 cells): 0.031s
+
+EXPECTED H3O PERFORMANCE
+======================================================================
+
+Based on published h3o benchmarks vs h3jsr:
+
+For large ranges (5,000+ cells):
+  Expected speedup: 5–50×
+  Estimated time (@ 10× speedup): 0.6–1.3s instead of 6–13s
+
+For medium ranges (1,000–3,000 cells):
+  Expected speedup: 2–5×
+  Estimated time (@ 3× speedup): 0.2–0.8s instead of 0.7–2.3s
+
+For small ranges (< 300 cells):
+  Expected speedup: 1–2×
+  Estimated time (@ 1.5× speedup): 0.02–0.15s (marginal gain)
+
+TOTAL ESTIMATED TIME (h3o @ 5× speedup):
+  Current h3jsr: 75.3 seconds
+  Estimated h3o: 15.1 seconds (5× speedup)
+  
+TOTAL ESTIMATED TIME (h3o @ 10× speedup):
+  Current h3jsr: 75.3 seconds
+  Estimated h3o:  7.5 seconds (10× speedup)
+
+INSTALLATION STATUS
+======================================================================
+
+h3o Status:        NOT INSTALLED (requires Rust compiler)
+h3jsr Status:      ✓ Installed and benchmarked
+Rust Status:       NOT INSTALLED
+
+To complete the benchmark:
+  1. Install Rust: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+  2. Install h3o:  R -e "install.packages('h3o')"
+  3. Re-run:       Rscript R/03_process/05_benchmark_h3o_vs_h3jsr.R
+
+================================================================================
