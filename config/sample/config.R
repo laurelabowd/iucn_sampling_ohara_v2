@@ -41,13 +41,13 @@ config <- list(
 
   ### --- Coordinate reference systems ------------------------------------------
   crs = list(
-    working    = 'EPSG:4326',
-    equal_area = 'EPSG:6933',
-    display    = 'EPSG:3857'
+    working    = "EPSG:4326",   # H3 / geographic
+    equal_area = "EPSG:3310",   # California Albers — swap for your region
+    display    = "EPSG:3857"    # web mercator, plotting only
   ),
 
   ### --- Spatial resolution ----------------------------------------------------
-  hex_resolution = 4,
+  hex_resolution = 8,
 
   ### --- API credentials (unused offline; kept so downstream code finds the keys)
   credentials = list(

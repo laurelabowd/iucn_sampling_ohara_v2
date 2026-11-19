@@ -103,6 +103,19 @@ harvest_polygon_names <- function(polygon_dir, name_field) {
 
   files <- list.files(polygon_dir, pattern = "\\.(shp|gpkg)$",
                       full.names = TRUE, recursive = TRUE)
+
+  ### Paths are stored in the crosswalk relative to the project root so the file
+  ### is portable across machines; consumers resolve them with here::here().
+  root_prefix <- paste0(normalizePath(here::here(), mustWork = TRUE), "/")
+  to_project_relative <- function(p) {
+    p_abs <- normalizePath(p, mustWork = TRUE)
+    if (!startsWith(p_abs, root_prefix)) {
+      warning(glue("'{p}' is outside the project root; storing absolute path"))
+      return(p_abs)
+    }
+    substring(p_abs, nchar(root_prefix) + 1)
+  }
+
   purrr::map_dfr(files, function(f) {
     tryCatch({
       layers <- if (grepl("\\.gpkg$", f)) sf::st_layers(f)$name
@@ -110,7 +123,7 @@ harvest_polygon_names <- function(polygon_dir, name_field) {
       purrr::map_dfr(layers, function(lyr) {
         cnt <- .layer_polygon_names(f, lyr, name_field)
         if (is.null(cnt) || nrow(cnt) == 0) return(NULL)
-        tibble::tibble(range_polygon_name = cnt$name, range_polygon_path = f,
+        tibble::tibble(range_polygon_name = cnt$name, range_polygon_path = to_project_relative(f),
                        range_polygon_layer = lyr, range_polygon_n_features = cnt$n_features)
       })
     }, error = function(e) {

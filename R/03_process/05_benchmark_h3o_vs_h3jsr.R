@@ -52,7 +52,12 @@ spp_map <- cw |>
                    polygon_path = range_polygon_path,
                    polygon_layer = as.character(range_polygon_layer)) |>
   tidyr::separate_longer_delim(c(range_polygon_name, polygon_path, polygon_layer),
-                               delim = "|")
+                               delim = "|") |>
+  dplyr::mutate(polygon_path = dplyr::if_else(
+    is.na(polygon_path) | startsWith(polygon_path, "/"),
+    polygon_path,
+    file.path(here::here(), polygon_path)
+  ))
 
 if (nrow(spp_map) == 0) {
   stop(glue("[{TAXON}] no polygon-linked species in crosswalk."), call. = FALSE)

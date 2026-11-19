@@ -148,20 +148,30 @@ hex_grid_stale_reason <- function(cfg = config) {
 
 ### Build (or reuse) the region hex grid and conservation-area cells.
 ### force = TRUE always rebuilds.
-build_hex_grid <- function(cfg = config, force = config$force) {
+### `progress`: "terse" (default; one line per outcome), "verbose" (per-step detail),
+### or "quiet" (no messages).
+build_hex_grid <- function(cfg = config, force = config$force,
+                           progress = c("terse", "verbose", "quiet")) {
+  progress <- match.arg(progress)
   if (!isTRUE(force)) {
     reason <- hex_grid_stale_reason(cfg)
     if (is.null(reason)) {
-      message(glue::glue("[hex_grid] level {cfg$hex_resolution}: using CACHED layers ",
-                         "(inputs unchanged; force = TRUE to rebuild)."))
+      .progress_msg(progress, "terse",
+                    glue::glue("[hex_grid] level {cfg$hex_resolution}: using CACHED layers ",
+                               "(inputs unchanged; force = TRUE to rebuild)."))
       return(invisible(list(
         hex_grid   = sf::st_read(hex_grid_path(cfg), quiet = TRUE),
         cons_cells = sf::st_read(cons_areas_hex_path(cfg), quiet = TRUE)
       )))
     }
-    message(glue::glue("[hex_grid] level {cfg$hex_resolution}: building ({reason})."))
+    .progress_msg(progress, "terse",
+                  glue::glue("[hex_grid] level {cfg$hex_resolution}: building ({reason})."))
+  } else {
+    .progress_msg(progress, "terse",
+                  glue::glue("[hex_grid] level {cfg$hex_resolution}: building (forced)."))
   }
 
+  .progress_msg(progress, "verbose", "    loading region boundary")
   region <- get_region_boundary(cfg)
 
   ### Region H3 grid.
@@ -175,6 +185,8 @@ build_hex_grid <- function(cfg = config, force = config$force) {
   ### Uses h3o (Rust). The 122 res-0 cell ids are 8<(2*base_cell+1) as 3 hex digits>fffffffffff
   ### (same as h3jsr::get_res0(), verified in 06_benchmark_hex_grid_h3o_vs_h3jsr.R).
   ### "centroid" containment matches h3jsr::polygon_to_cells (cells whose centre is inside).
+  .progress_msg(progress, "verbose",
+                glue::glue("    generating H3 cells (", if (is_global) "global" else "region polygon", ")"))
   ids <- if (is_global) {
     sprintf("8%03xfffffffffff", 2L * (0:121) + 1L) |>
       h3o::h3_from_strings() |>
@@ -192,12 +204,15 @@ build_hex_grid <- function(cfg = config, force = config$force) {
   ### vertices of cells crossing icosahedron edges), identical to h3jsr::cell_to_polygon.
   ### Do NOT use h3o::h3_to_vertexes(): it omits those extra vertices.
   hex_grid <- sf::st_sf(h3_index = ids, geometry = sf::st_as_sfc(h3o::h3_from_strings(ids)))
+  .progress_msg(progress, "verbose", glue::glue("    {nrow(hex_grid)} region cells; writing grid"))
   ensure_parent_dir(hex_grid_path(cfg))
   sf::st_write(hex_grid, hex_grid_path(cfg), delete_dsn = TRUE, quiet = TRUE)
 
   ### Conservation-area cells (attributes summarised per cell).
   ca_cfg <- cfg$conservation_areas
+  .progress_msg(progress, "verbose", "    loading conservation areas")
   cons <- get_conservation_areas(cfg)
+  .progress_msg(progress, "verbose", glue::glue("    {nrow(cons)} conservation polygons"))
 
   ### Spherical intersects via s2. WDPA polygons can be s2-invalid even after
   ### st_make_valid() (GEOS validity is planar), so rebuild them with split
@@ -206,6 +221,7 @@ build_hex_grid <- function(cfg = config, force = config$force) {
     s2::s2_rebuild(options = s2::s2_options(
       edge_type = "undirected", validate = FALSE, split_crossing_edges = TRUE))
   hex_s2 <- s2::as_s2_geography(sf::st_geometry(hex_grid))
+  .progress_msg(progress, "verbose", "    intersecting hex cells with conservation areas (s2; slow at fine levels)")
   hits <- s2::s2_intersects_matrix(hex_s2, cons_s2)
 
   pairs <- data.frame(
@@ -233,7 +249,8 @@ build_hex_grid <- function(cfg = config, force = config$force) {
     hex_manifest_path(cfg), auto_unbox = TRUE, pretty = TRUE
   )
 
-  message(glue::glue("[hex_grid] {nrow(hex_grid)} region cells, ",
-                     "{nrow(cons_cells)} conservation cells written."))
+  .progress_msg(progress, "terse",
+                glue::glue("[hex_grid] {nrow(hex_grid)} region cells, ",
+                           "{nrow(cons_cells)} conservation cells written."))
   invisible(list(hex_grid = hex_grid, cons_cells = cons_cells))
 }

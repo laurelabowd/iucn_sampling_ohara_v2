@@ -46,7 +46,13 @@ h3_max_lat <- 88
                      polygon_layer = as.character(range_polygon_layer)) |>
     ### Species with several sources hold "|"-delimited parallel values.
     tidyr::separate_longer_delim(c(range_polygon_name, polygon_path, polygon_layer),
-                                 delim = "|")
+                                 delim = "|") |>
+    ### Crosswalk paths are project-root-relative; legacy absolute paths pass through.
+    dplyr::mutate(polygon_path = dplyr::if_else(
+      is.na(polygon_path) | startsWith(polygon_path, "/"),
+      polygon_path,
+      file.path(here::here(), polygon_path)
+    ))
   if (nrow(cw) == 0) {
     warning(glue("[{taxon}] no polygon-linked species in crosswalk."))
   }
