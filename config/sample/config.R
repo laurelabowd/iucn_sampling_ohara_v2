@@ -77,6 +77,8 @@ config <- list(
   gbif_max_age_days = 180,
   ### 'download' = GBIF download API, so the API path is exercised on sample runs
   gbif_source       = 'download',
+  ### GBIF backbone checklist key to use GBIF Backbone Taxonomy for name matching
+  gbif_checklist_key = 'd7dddbf4-2cf0-4f39-9b2a-bb099caae36c',
 
   ### --- Paths (sample-scoped so nothing collides with real outputs) ----------
   paths = list(

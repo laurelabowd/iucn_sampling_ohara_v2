@@ -77,7 +77,8 @@ ebird_gbif_map <- function(cache_path = .default_ebird_cache, rebuild = FALSE) {
       ebird_code = speciesCode
     )
 
-  keys <- rgbif::name_backbone_checklist(eb$ebird_name) |>
+  keys <- rgbif::name_backbone_checklist(eb$ebird_name,
+    checklistKey = config$gbif_checklist_key) |>
     dplyr::transmute(
       ebird_name = verbatim_name,
       gbif_usage_key = speciesKey
@@ -214,7 +215,8 @@ resolve_species_names <- function(
     dplyr::distinct(sci_name_input, .keep_all = TRUE)
 
   ### 2. GBIF backbone: authoritative accepted name + key ------------------------
-  gbif <- rgbif::name_backbone_checklist(names_in) |>
+  gbif <- rgbif::name_backbone_checklist(names_in, 
+    checklistKey = config$gbif_checklist_key) |>
     dplyr::transmute(
       sci_name_input = verbatim_name,
       sci_name_gbif = species,             ### ACCEPTED binomial
