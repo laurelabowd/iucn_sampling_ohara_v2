@@ -145,7 +145,8 @@ attach_polygon_link <- function(crosswalk, polygon_names) {
                          range_polygon_n_features = NA_integer_))
   }
 
-  keys <- rgbif::name_backbone_checklist(polygon_names$range_polygon_name) |>
+  keys <- rgbif::name_backbone_checklist(polygon_names$range_polygon_name,
+  checklistKey = config$gbif_checklist_key) |>
     dplyr::transmute(
       range_polygon_name = verbatim_name,
       gbif_usage_key = as.numeric(speciesKey)

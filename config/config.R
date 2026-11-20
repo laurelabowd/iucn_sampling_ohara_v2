@@ -135,6 +135,8 @@ config <- list(
   ### snapshot on AWS S3 (DuckDB; no credentials or queue; matches on species name),
   ### or 'download' = the GBIF download API (taxon keys; queue wait).
   gbif_source = 'snapshot',
+  ### GBIF backbone checklist key to use GBIF Backbone Taxonomy for name matching
+  gbif_checklist_key = 'd7dddbf4-2cf0-4f39-9b2a-bb099caae36c',
   ### Snapshot date (YYYY-MM-01), pinned so reruns reproduce the same data. 'latest'
   ### resolves to the newest snapshot (logged and recorded in the manifest).
   gbif_snapshot_date = '2026-11-01',
