@@ -16,7 +16,7 @@
 ###    gbif_pending.json so a rerun re-attaches instead of resubmitting.
 ###  'snapshot': one DuckDB pass over the monthly GBIF snapshot on AWS S3 (date
 ###    pinned in config$gbif_snapshot_date), split into per-taxon datasets. No
-###    credentials or queue; matches on species name. See run_gbif_snapshot().
+###    credentials or queue; matches on specieskey. See run_gbif_snapshot().
 ###
 ### Requires config + taxa_config + R/00_utils.R sourced first.
 ###
@@ -40,7 +40,11 @@ load_crosswalk <- function(taxon = NULL, cfg = config) {
     stop(glue("Crosswalk not found at {cfg$paths$crosswalk}. Run Stage 0 ",
               "(build_species_crosswalk()) first."))
   }
-  cw <- readr::read_csv(cfg$paths$crosswalk, show_col_types = FALSE)
+  ### gbif_usage_key is read as character: keys are alphanumeric (e.g. "5384V"), and
+  ### an all-digit subset would otherwise be guessed as numeric.
+  cw <- readr::read_csv(cfg$paths$crosswalk, show_col_types = FALSE,
+                        col_types = readr::cols(gbif_usage_key = readr::col_character(),
+                                                .default = readr::col_guess()))
   if (!is.null(taxon)) cw <- dplyr::filter(cw, taxon == !!taxon)
   cw
 }
@@ -318,6 +322,8 @@ run_gbif_downloads <- function(taxa = config$taxa, cfg = config,
     message("[gbif] disabled (config$gbif_filters$enabled = FALSE); skipping.")
     return(tibble::tibble())
   }
+  ### for new alphanumeric speciesKey taxonomic keys from Catalog of Life
+  check_rgbif_version()
 
   ### config$gbif_source = 'snapshot': one pass over the monthly AWS snapshot
   ### instead of the download API (see run_gbif_snapshot()). snapshot_parts limits
@@ -446,10 +452,10 @@ run_gbif_downloads <- function(taxa = config$taxa, cfg = config,
 ### home connection for the full snapshot), the same whether 1 or 10 taxa.
 ###
 ### Differences from the download API, all by design:
-###  - Matching is on the snapshot `species` NAME (the crosswalk's name_gbif, else
-###    name_accepted), not taxon keys: snapshot taxon keys are no longer GBIF
-###    backbone integers, so the crosswalk's gbif_usage_key cannot be used. The
-###    parse stage already matches on name_gbif, so downstream is unchanged.
+###  - Matching is on the snapshot `specieskey` (alphanumeric, Catalog of Life
+###    based) against the crosswalk's gbif_usage_key. There is NO fallback to
+###    species names: crosswalk rows without a key are logged and not extracted.
+###    The parse stage still matches on name_gbif, so downstream is unchanged.
 ###  - Data are as of the snapshot date (config$gbif_snapshot_date, pinned for
 ###    reproducibility; 'latest' resolves to the newest and is recorded).
 ###  - Geospatial-issue exclusion is rebuilt from the `issue` array (see
@@ -500,10 +506,10 @@ gbif_snapshot_citation <- function(date, cfg) {
 }
 
 ### Hash of everything that determines the extracted content.
-gbif_snapshot_hash <- function(sp_names, date, cols, cfg) {
+gbif_snapshot_hash <- function(sp_keys, date, cols, cfg) {
   rlang::hash(list(
-    source  = "snapshot", date = date,
-    names   = sort(unique(sp_names)),
+    source  = "snapshot", date = date, match = "specieskey",
+    keys    = sort(unique(sp_keys)),
     columns = sort(cols),
     ### `enabled` and `download_format` do not affect snapshot content.
     filters = cfg$gbif_filters[setdiff(names(cfg$gbif_filters), c("enabled", "download_format"))],
@@ -521,16 +527,28 @@ plan_snapshot_taxon <- function(taxon, cfg, taxa_cfg, include_flagged, max_age_d
 
   cw <- load_crosswalk(taxon, cfg)
   if (!isTRUE(include_flagged)) cw <- dplyr::filter(cw, !needs_review)
-  sp_names <- sort(unique(stats::na.omit(dplyr::coalesce(cw$name_gbif, cw$name_accepted))))
-  if (length(sp_names) == 0) stop(glue("No species names resolved for '{taxon}'."))
+  ### Match on specieskey only; rows without a key are reported, never name-matched.
+  no_key <- is.na(cw$gbif_usage_key) | cw$gbif_usage_key == ""
+  if (any(no_key)) {
+    gbif_log(glue("{taxon}: {sum(no_key)} crosswalk row(s) have no gbif_usage_key and will ",
+                  "NOT be extracted: ",
+                  "{paste(utils::head(dplyr::coalesce(cw$name_gbif, cw$name_input)[no_key], 10), collapse = '; ')}"))
+  }
+  sp_keys <- sort(unique(cw$gbif_usage_key[!no_key]))
+  if (length(sp_keys) == 0) stop(glue("No gbif_usage_key values in crosswalk for '{taxon}'."))
+  sp_names <- sort(unique(stats::na.omit(dplyr::coalesce(cw$name_gbif, cw$name_accepted)[!no_key])))
 
   dataset_path <- tcfg$gbif_dataset_path
   out_dir <- dirname(dataset_path)
-  req_hash <- gbif_snapshot_hash(sp_names, date, cols, cfg)
+  req_hash <- gbif_snapshot_hash(sp_keys, date, cols, cfg)
 
   job <- list(
     taxon = taxon, state = "queued", error = NA_character_, n_records = NA_integer_,
-    sp_names = sp_names, dataset_path = dataset_path, out_dir = out_dir,
+    sp_keys = sp_keys, sp_names = sp_names,
+    key_names = stats::setNames(
+      dplyr::coalesce(cw$name_gbif, cw$name_accepted, cw$name_input)[!no_key],
+      cw$gbif_usage_key[!no_key]),
+    dataset_path = dataset_path, out_dir = out_dir,
     req_hash = req_hash, n_species = nrow(cw),
     n_flagged = sum(cw$needs_review, na.rm = TRUE)
   )
@@ -572,7 +590,7 @@ run_gbif_snapshot <- function(taxa, cfg, taxa_cfg, include_flagged, max_age_days
   ### columns it filters on. Snapshot column names are all lower case.
   keep <- unique(unlist(lapply(taxa, function(t) taxa_cfg[[t]]$gbif_columns_keep)))
   cols <- cfg$gbif_snapshot_columns %||%
-    if (length(keep) > 0) unique(c(tolower(keep), "species", "year", "basisofrecord", "license"))
+    if (length(keep) > 0) unique(c(tolower(keep), "species", "specieskey", "year", "basisofrecord", "license"))
   cols_sql <- if (is.null(cols)) "*" else paste(cols, collapse = ", ")
 
   db <- DBI::dbConnect(duckdb::duckdb())
@@ -600,7 +618,7 @@ run_gbif_snapshot <- function(taxa, cfg, taxa_cfg, include_flagged, max_age_days
     f <- cfg$gbif_filters
     yrs <- range(cfg$years)
     bb <- region_bbox(cfg)
-    all_names <- unique(unlist(lapply(jobs[queued], `[[`, "sp_names")))
+    all_keys <- unique(unlist(lapply(jobs[queued], `[[`, "sp_keys")))
 
     ### 2. One scan over the snapshot parts, in resumable chunks.
     scan_res <- tryCatch({
@@ -616,7 +634,7 @@ run_gbif_snapshot <- function(taxa, cfg, taxa_cfg, include_flagged, max_age_days
       if (length(parts) == 0) stop(glue("No parquet parts found under {prefix}."))
       if (!is.null(part_limit)) parts <- utils::head(parts, part_limit)
 
-      needed <- unique(c(cols, "species", "year", "basisofrecord",
+      needed <- unique(c(cols, "species", "specieskey", "year", "basisofrecord",
                          if (isTRUE(f$has_coordinate)) c("decimallatitude", "decimallongitude"),
                          if (!is.null(f$has_geo_issue)) "issue",
                          if (!is.null(cfg$region$country_code)) "countrycode",
@@ -628,7 +646,7 @@ run_gbif_snapshot <- function(taxa, cfg, taxa_cfg, include_flagged, max_age_days
       }
 
       where <- c(
-        glue("species IN ({q(all_names)})"),
+        glue("specieskey IN ({q(all_keys)})"),
         glue("year BETWEEN {as.integer(yrs[1])} AND {as.integer(yrs[2])}"),
         glue("basisofrecord IN ({q(f$basis_of_record)})"),
         if (isTRUE(f$has_coordinate))
@@ -646,7 +664,7 @@ run_gbif_snapshot <- function(taxa, cfg, taxa_cfg, include_flagged, max_age_days
       )
       where_sql <- paste0("(", where, ")", collapse = " AND ")
 
-      scan_hash <- rlang::hash(list(gbif_snapshot_hash(all_names, date, cols %||% "*", cfg),
+      scan_hash <- rlang::hash(list(gbif_snapshot_hash(all_keys, date, cols %||% "*", cfg),
                                     part_limit))
       work_dir <- ensure_dir(file.path(cfg$paths$data_raw, "gbif", "_snapshot_work",
                                        glue("{date}_{substr(scan_hash, 1, 10)}")))
@@ -656,7 +674,7 @@ run_gbif_snapshot <- function(taxa, cfg, taxa_cfg, include_flagged, max_age_days
       chunks <- unname(split(parts, (seq_along(parts) - 1) %/% ceiling(length(parts) / n_chunks)))
       n_chunks <- length(chunks)
       gbif_log(glue("snapshot {date}: scanning {length(parts)} parts in {n_chunks} chunks ",
-                    "for {length(all_names)} names ({length(queued)} taxa); checkpoints in {work_dir}"))
+                    "for {length(all_keys)} specieskeys ({length(queued)} taxa); checkpoints in {work_dir}"))
       t0 <- Sys.time()
       for (i in seq_along(chunks)) {
         out <- file.path(work_dir, sprintf("chunk_%03d.parquet", i))
@@ -715,17 +733,34 @@ run_gbif_snapshot <- function(taxa, cfg, taxa_cfg, include_flagged, max_age_days
           unlink(stage, recursive = TRUE)
           dir.create(stage)
           DBI::dbExecute(db, glue(
-            "COPY (SELECT * FROM read_parquet('{chunk_glob}') WHERE species IN ({q(j$sp_names)})) ",
+            "COPY (SELECT * FROM read_parquet('{chunk_glob}') WHERE specieskey IN ({q(j$sp_keys)})) ",
             "TO '{file.path(stage, 'part-0.parquet')}' (FORMAT parquet)"))
           n_rec <- DBI::dbGetQuery(db, glue(
             "SELECT count(*) n FROM read_parquet('{file.path(stage, 'part-0.parquet')}')"))$n
+          ### Crosswalk keys with zero records in the extract (no data, or a key that
+          ### does not exist in this snapshot). Reported, not an error.
+          got <- DBI::dbGetQuery(db, glue(
+            "SELECT DISTINCT specieskey FROM read_parquet('{file.path(stage, 'part-0.parquet')}')"
+          ))$specieskey
+          zero_keys <- setdiff(j$sp_keys, got)
+          if (length(zero_keys) > 0) {
+            zero_nm <- unname(j$key_names[zero_keys])
+            gbif_log(glue("{tx}: {length(zero_keys)}/{length(j$sp_keys)} crosswalk keys have ",
+                          "ZERO records in the extract: ",
+                          "{paste(utils::head(paste0(zero_keys, ' (', zero_nm, ')'), 15), collapse = '; ')}",
+                          "{if (length(zero_keys) > 15) '; ...' else ''}"))
+          } else {
+            gbif_log(glue("{tx}: all {length(j$sp_keys)} crosswalk keys have records in the extract."))
+          }
           unlink(j$dataset_path, recursive = TRUE)
           file.rename(stage, j$dataset_path)
           jsonlite::write_json(
             list(taxon = tx, source = "gbif_snapshot", snapshot_date = date,
                  snapshot_bucket = bucket, snapshot_citation = citation,
                  request_hash = j$req_hash, dataset = basename(j$dataset_path),
-                 n_names = length(j$sp_names), n_records = as.integer(n_rec),
+                 n_names = length(j$sp_names), n_keys = length(j$sp_keys),
+                 keys_zero_records = as.list(zero_keys),
+                 n_records = as.integer(n_rec),
                  downloaded_utc = format(Sys.time(), tz = "UTC", "%Y-%m-%d %H:%M:%S")),
             manifest_path(j$out_dir), auto_unbox = TRUE, pretty = TRUE
           )

@@ -84,3 +84,12 @@ remove_empty_files <- function(dir, pattern = "\\.parquet$") {
 ### Canonical singular taxon slug used in every path (bird/reptile/mammal). Kept
 ### as a function so any future aliasing lives in one place.
 taxon_slug <- function(taxon) tolower(taxon)
+
+### Starting in version 3.9, rgbif defaults to Catalog of Life
+### taxonomic key - alphanumeric speciesKey.  Ensure that user has at least 
+### this version number.
+check_rgbif_version <- function() {
+  if (packageVersion("rgbif") < "3.9") {
+    stop('Requires rgbif package version >= 3.9 for alphanumeric speciesKey')
+  }
+}

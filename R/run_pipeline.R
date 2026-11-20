@@ -56,36 +56,23 @@ apply_sample_config <- function() {
 }
 
 ### --- Orchestration ------------------------------------------------------------
-run_pipeline <- function(sample = FALSE, do_acquire = !sample) {
+run_pipeline <- function(sample = FALSE) {
   if (isTRUE(sample)) apply_sample_config()
 
   message("== Stage 0: taxonomy ==")
-  # if (isTRUE(sample)) {
-  #   ### Name resolution calls the GBIF/eBird APIs, so the sample ships a
-  #   ### pre-built crosswalk; copy it into place instead of rebuilding.
-  #   ensure_parent_dir(config$paths$crosswalk)
-  #   file.copy(here("data", "sample", "species_crosswalk.csv"),
-  #             config$paths$crosswalk, overwrite = TRUE)
-  #   message("Sample mode: using committed data/sample/species_crosswalk.csv")
-  # } else {
-    build_species_crosswalk()
-  # }
+      
+  build_species_crosswalk(force = TRUE)
 
-  if (isTRUE(do_acquire)) {
-    message("== Stage 1: acquire (API-gated) ==")
-    system.time({run_gbif_downloads(force = config$force)})
-      ### slow, but hopefully should run just as fast across all taxa
-      ### as it does with just two taxa (single-shot query)
-    system.time({
-      ### Only taxa with an obis_dataset_path in taxa_config are fetched from OBIS.
-      ### use_aws = TRUE attempts AWS S3 GeoParquet first (fast); falls back to API.
-      run_obis_downloads(force = config$force)
-    })
-    ### get_ebird_status / run_redlist_status are opt-in; call directly if needed.
-    ### NOTE: for IUCN downloads with meta, all the redlist status is in there already!
-  } else {
-    message("== Stage 1: acquire skipped (using provided inputs) ==")
-  }
+  message("== Stage 1: acquire (API-gated) ==")
+  system.time({run_gbif_downloads(force = config$force)})
+    ### slow, but hopefully should run just as fast across all taxa
+    ### as it does with just two taxa (single-shot query)
+    ### 1.5 hrs abs and mamms 11/19/26
+  system.time({
+    ### Only taxa with an obis_dataset_path in taxa_config are fetched from OBIS.
+    ### use_aws = TRUE attempts AWS S3 GeoParquet first (fast); falls back to API.
+    run_obis_downloads(force = config$force)
+  })
   
   message("== Stage 2: process ==")
   system.time({build_hex_grid()}) 

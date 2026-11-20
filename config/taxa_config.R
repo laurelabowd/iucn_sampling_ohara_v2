@@ -29,13 +29,14 @@ library(here)
 ### taxon so a per-taxon list can't silently drop a column the cleaning step needs
 ### (the original mammal config dropped basisOfRecord/individualCount, which
 ### clean_occurrence then filtered on — a real bug this shared list prevents).
+### Trimmed to what parse/clean/indicators use (2026-11): gbifID -> record_id (tot_obs);
+### datasetKey kept for the GBIF derived-dataset citation; eventDate is the date part
+### of the GBIF/OBIS duplicate key; the rest feed cleaning filters, H3 thinning and grouping.
 gbif_columns_keep <- c(
-  "gbifID", "datasetKey", "occurrenceID",
-  "family", "genus", "species", "scientificName",
-  "occurrenceStatus", "publishingOrgKey",
+  "gbifID", "datasetKey", "species",
   "decimalLatitude", "decimalLongitude",
   "coordinateUncertaintyInMeters", "coordinatePrecision",
-  "year", "month", "day", "eventDate",
+  "year", "eventDate",
   "basisOfRecord", "individualCount"
 )
 

@@ -144,13 +144,9 @@ attach_polygon_link <- function(crosswalk, polygon_names) {
                          range_polygon_layer = NA_character_,
                          range_polygon_n_features = NA_integer_))
   }
-
-  keys <- rgbif::name_backbone_checklist(polygon_names$range_polygon_name,
-  checklistKey = config$gbif_checklist_key) |>
-    dplyr::transmute(
-      range_polygon_name = verbatim_name,
-      gbif_usage_key = as.numeric(speciesKey)
-    )
+  keys <- rgbif::name_backbone_checklist(polygon_names$range_polygon_name) |>
+    dplyr::select(range_polygon_name = verbatim_name,
+                  gbif_usage_key = speciesKey)
 
   ### One crosswalk row per species. If a species has polygons in several
   ### layers/files (or under several vendor names), the sources are collapsed into
@@ -181,6 +177,9 @@ attach_polygon_link <- function(crosswalk, polygon_names) {
 
 ### Build one taxon's crosswalk (names resolved + polygon linkage where used).
 build_taxon_crosswalk <- function(taxon, tcfg, cfg = config, force = config$force) {
+  ### for new alphanumeric speciesKey taxonomic keys from Catalog of Life
+  check_rgbif_version()
+  
   raw <- load_species_list(taxon, tcfg)
 
   cw <- resolve_species_names(

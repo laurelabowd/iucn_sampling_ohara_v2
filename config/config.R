@@ -124,7 +124,7 @@ config <- list(
 
   ### Ignore all caches and redo cached steps (downloads, name-resolution map,
   ### hex grid, parse, clean). run_pipeline() passes this to every such step.
-  force = TRUE,
+  force = FALSE,
 
   ### Re-download a taxon's GBIF data if the stored download is older than this
   ### many days (Inf = never expire). Kept outside `gbif_filters` so it does not
@@ -132,7 +132,7 @@ config <- list(
   gbif_max_age_days = 180,
 
   ### Where GBIF occurrences come from: 'snapshot' = one pass over the monthly GBIF
-  ### snapshot on AWS S3 (DuckDB; no credentials or queue; matches on species name),
+  ### snapshot on AWS S3 (DuckDB; no credentials or queue; matches on specieskey),
   ### or 'download' = the GBIF download API (taxon keys; queue wait).
   gbif_source = 'snapshot',
   ### GBIF backbone checklist key to use GBIF Backbone Taxonomy for name matching

@@ -66,7 +66,9 @@ suppressPackageStartupMessages({
 ### cached. Pass rebuild = TRUE to refresh, or cache_path = NULL to skip caching.
 ebird_gbif_map <- function(cache_path = .default_ebird_cache, rebuild = FALSE) {
   if (!is.null(cache_path) && !isTRUE(rebuild) && file.exists(cache_path)) {
-    return(readr::read_csv(cache_path, show_col_types = FALSE))
+    return(readr::read_csv(cache_path, show_col_types = FALSE,
+                           col_types = readr::cols(gbif_usage_key = readr::col_character(),
+                                                   .default = readr::col_guess())))
   }
 
   eb <- rebird::ebirdtaxonomy() |>
@@ -119,7 +121,10 @@ apply_name_overrides <- function(crosswalk, overrides_path = .default_overrides)
     return(finish(dplyr::mutate(crosswalk, override = FALSE)))
   }
 
-  ov <- readr::read_csv(overrides_path, show_col_types = FALSE)
+  ### gbif_usage_key is read as character: keys are alphanumeric (e.g. "5384V").
+  ov <- readr::read_csv(overrides_path, show_col_types = FALSE,
+                        col_types = readr::cols(gbif_usage_key = readr::col_character(),
+                                                .default = readr::col_guess()))
   if (!("name_input" %in% names(ov)) || nrow(ov) == 0) {
     return(finish(dplyr::mutate(crosswalk, override = FALSE)))
   }
@@ -133,9 +138,8 @@ apply_name_overrides <- function(crosswalk, overrides_path = .default_overrides)
   ov <- ov |>
     dplyr::mutate(name_input = stringr::str_trim(name_input)) |>
     dplyr::distinct(name_input, .keep_all = TRUE)
-  if ("gbif_usage_key" %in% overridable) {
-    ov$gbif_usage_key <- as.numeric(ov$gbif_usage_key)
-  }
+  ### Match the override's character type so coalesce() below can combine them.
+  crosswalk$gbif_usage_key <- as.character(crosswalk$gbif_usage_key)
 
   crosswalk <- crosswalk |>
     dplyr::left_join(
@@ -215,8 +219,7 @@ resolve_species_names <- function(
     dplyr::distinct(sci_name_input, .keep_all = TRUE)
 
   ### 2. GBIF backbone: authoritative accepted name + key ------------------------
-  gbif <- rgbif::name_backbone_checklist(names_in, 
-    checklistKey = config$gbif_checklist_key) |>
+  gbif <- rgbif::name_backbone_checklist(names_in) |>
     dplyr::transmute(
       sci_name_input = verbatim_name,
       sci_name_gbif = species,             ### ACCEPTED binomial
@@ -279,11 +282,10 @@ resolve_species_names <- function(
   ### 4. eBird: attach the CURRENT name/code by joining on the GBIF key ----------
   is_bird <- gbif$class == "Aves" & !is.na(gbif$class)
   if (any(is_bird)) {
-    emap <- ebird_gbif_map(cache_path = ebird_cache, rebuild = rebuild_ebird_cache) |>
-      dplyr::mutate(gbif_usage_key = as.numeric(gbif_usage_key))
+    emap <- ebird_gbif_map(cache_path = ebird_cache, rebuild = rebuild_ebird_cache)
   } else {
     emap <- tibble::tibble(
-      gbif_usage_key = numeric(),
+      gbif_usage_key = character(),
       ebird_name = character(),
       common_name = character(),
       ebird_code = character()
@@ -292,7 +294,6 @@ resolve_species_names <- function(
 
   ### 5. Assemble the unified crosswalk ------------------------------------------
   crosswalk <- gbif |>
-    dplyr::mutate(gbif_usage_key = as.numeric(gbif_usage_key)) |>
     dplyr::left_join(parse_ok, by = "sci_name_input") |>
     dplyr::left_join(verifier, by = "sci_name_input") |>
     dplyr::left_join(emap, by = "gbif_usage_key") |>
